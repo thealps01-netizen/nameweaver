@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# PyInstaller output (keep Nameweaver.spec tracked)
+dist/
+build/
+installer/
+
+# Runtime / user data
+settings.json
+logs/
+
+# IDE / local tooling
+.vscode/
+.idea/
+*.swp
+.claude/settings.local.json
+
+# Windows
+Thumbs.db
+desktop.ini

@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Get version from tag
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Inject version into file_version_info.txt
+        shell: pwsh
+        run: |
+          $v = "${{ steps.version.outputs.VERSION }}"
+          $vt = $v -replace '\.', ', '
+          (Get-Content file_version_info.txt) `
+            -replace "filevers=\(.*?\)", "filevers=($vt, 0)" `
+            -replace "prodvers=\(.*?\)", "prodvers=($vt, 0)" `
+            -replace "'FileVersion',\s*'.*?'", "'FileVersion', '$v.0'" `
+            -replace "'ProductVersion',\s*'.*?'", "'ProductVersion', '$v.0'" |
+          Set-Content file_version_info.txt
+
+      - name: Inject version into version.py
+        shell: pwsh
+        run: |
+          $v = "${{ steps.version.outputs.VERSION }}"
+          $vt = $v -replace '\.', ', '
+          (Get-Content version.py) `
+            -replace '__version__\s*=\s*"[^"]*"', "__version__      = `"$v`"" `
+            -replace '__version_tuple__\s*=\s*\([^)]*\)', "__version_tuple__ = ($vt)" |
+          Set-Content version.py
+
+      - name: Generate icon
+        run: python tools/make_icon.py
+
+      - name: Build with PyInstaller
+        run: pyinstaller Nameweaver.spec
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" nameweaver.iss
+
+      - name: Generate SHA256 checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash installer/Nameweaver_Setup.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Nameweaver_Setup.exe" | Out-File -Encoding ascii installer/Nameweaver_Setup.exe.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            installer/Nameweaver_Setup.exe
+            installer/Nameweaver_Setup.exe.sha256
+          generate_release_notes: true
