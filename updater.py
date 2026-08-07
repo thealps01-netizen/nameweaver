@@ -39,6 +39,40 @@ _log = get_logger("updater")
 # Keeps downloader + progress dialog alive until download finishes (prevents GC)
 _active: list = []
 
+
+# ── "Skip this version" persistence ─────────────────────────────────────────────
+# Self-contained: stored in its own small JSON file so the updater does not
+# depend on the app's config schema (cfg.AppConfig).
+
+def _skip_store_path() -> str:
+    """Path to the JSON file tracking the user's skipped version."""
+    try:
+        from cfg import config_dir
+        base = str(config_dir())
+    except Exception:
+        base = os.path.join(
+            os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Nameweaver"
+        )
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, "update_skip.json")
+
+
+def _get_skipped_version() -> str:
+    try:
+        with open(_skip_store_path(), encoding="utf-8") as f:
+            return json.load(f).get("skipped_version", "")
+    except Exception:
+        return ""
+
+
+def _set_skipped_version(tag: str) -> None:
+    try:
+        with open(_skip_store_path(), "w", encoding="utf-8") as f:
+            json.dump({"skipped_version": tag}, f)
+    except Exception:
+        _log.warning("Could not persist skipped version.", exc_info=True)
+
+
 # ── Version comparison ─────────────────────────────────────────────────────────
 
 def _parse(tag: str) -> tuple[int, ...]:
@@ -118,9 +152,7 @@ class UpdateChecker(QObject):
         _log.debug("Checking for updates (%s/%s, current=%s)",
                    self._owner, self._repo, __version__)
 
-        # Import here to avoid circular imports at module load time
-        from cfg import load_cfg
-        skipped = load_cfg().get("skipped_version", "")
+        skipped = _get_skipped_version()
 
         release = _fetch_latest(self._owner, self._repo)
         if release is None:
@@ -611,8 +643,6 @@ def _show_download_error(raw: str, parent=None) -> None:
 
 def prompt_and_install(tag: str, download_url: str, notes: str = "", parent=None) -> None:
     """Show modern update dialog, then download & run installer if accepted."""
-    from cfg import load_cfg, save_cfg
-
     dlg = UpdateDialog(tag, notes, parent)
     dlg.adjustSize()
     dlg._center_on_screen()
@@ -621,9 +651,7 @@ def prompt_and_install(tag: str, download_url: str, notes: str = "", parent=None
     choice = dlg.choice()
 
     if choice == UpdateDialog.SKIP:
-        cfg = load_cfg()
-        cfg["skipped_version"] = tag
-        save_cfg(cfg)
+        _set_skipped_version(tag)
         _log.info("Version %s marked as skipped.", tag)
         return
 
