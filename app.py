@@ -45,6 +45,7 @@ from models import LlmModel, load_all_models
 from providers import ProviderState, ProviderStatus
 from scoring import ModelFit, analyze_all
 from themes import THEME_LABELS, generate_qss, get_theme
+from updater import UpdateChecker, prompt_and_install
 from version import __version__
 from widgets.chat_dialog import ChatDialog
 from widgets.comparison import ComparisonDialog
@@ -320,6 +321,17 @@ class MainWindow(QMainWindow):
 
         # Start background work
         QTimer.singleShot(100, self._start_detection)
+
+        # Background update check (GitHub Releases). Kept on self so the
+        # QThread is not garbage-collected while it runs.
+        self._update_checker = UpdateChecker("thealps01-netizen", "nameweaver")
+        self._update_checker.update_available.connect(self._on_update_available)
+        self._update_checker.start()
+
+    def _on_update_available(self, tag: str, url: str, notes: str) -> None:
+        """A newer release exists — prompt the user to download & install."""
+        logger.info("Update available: %s", tag)
+        prompt_and_install(tag, url, notes, parent=self)
 
     # -----------------------------------------------------------------------
     # UI setup
