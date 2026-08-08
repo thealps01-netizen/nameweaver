@@ -353,7 +353,11 @@ def save_cache(models: list[LlmModel]) -> None:
         "models": [asdict(m) for m in models],
     }
     try:
-        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        # Atomic write: write to a temp file then replace, so an interrupted
+        # write (e.g. app shutdown) can never leave a corrupt cache file.
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
         logger.info("Saved %d models to HF cache: %s", len(models), path)
     except OSError as exc:
         logger.error("Failed to save HF cache: %s", exc)

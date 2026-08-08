@@ -6,7 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
-## [0.1.3] - 2026-08-08
+## [0.1.4] - 2026-08-08
+### Fixed
+- Kapatırken 1-2 sn donma: `closeEvent` artık pencereyi anında gizliyor, arka plan thread'lerine dur sinyalini tek seferde (paralel) gönderiyor ve kısa/sınırlı bekliyor; takılan thread son çare olarak sonlandırılıyor. Böylece kapanma anında hissediliyor.
+- HF cache yazımı atomik hale getirildi (temp dosya + replace) — kapanışta yarım kalan yazım artık cache'i bozamaz.
 ### Added
 - Manuel güncelleme denetimi: About penceresine "Güncellemeleri Denetle" butonu eklendi. Güncelleme varsa indirme istemi, yoksa "en güncel" bilgisi, ağ hatasında "denetlenemedi" uyarısı gösterilir.
 

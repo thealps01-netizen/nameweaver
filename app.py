@@ -2129,7 +2129,7 @@ class MainWindow(QMainWindow):
         self.resize(c.window_width, c.window_height)
 
     def closeEvent(self, event):
-        """Save state before closing."""
+        """Save state and shut background threads down without freezing the UI."""
         self._config.window_width = self.width()
         self._config.window_height = self.height()
         pos = self.pos()
@@ -2137,23 +2137,43 @@ class MainWindow(QMainWindow):
         self._config.window_y = pos.y()
         self._save_config()
 
-        # Stop workers
-        for worker in [
+        # Hide immediately so closing feels instant — the user never sees a
+        # frozen window while background threads wind down.
+        self.hide()
+
+        # Collect every background QThread we own (workers, poller, update checks).
+        threads = [
             self._hw_worker,
             self._provider_worker,
             self._scoring_worker,
             self._hf_worker,
             self._provider_start_worker,
             self._provider_stop_worker,
-        ]:
-            if worker and worker.isRunning():
-                worker.quit()
-                worker.wait(2000)
+            self._provider_poller,
+        ]
+        for checker in (
+            getattr(self, "_update_checker", None),
+            getattr(self, "_manual_update_checker", None),
+        ):
+            if checker is not None:
+                threads.append(getattr(checker, "_thread", None))
 
-        # Poller uses interruption to exit its loop cleanly
-        if self._provider_poller and self._provider_poller.isRunning():
-            self._provider_poller.requestInterruption()
-            self._provider_poller.wait(2000)
+        # These workers run blocking work in run() (not a Qt event loop), so
+        # quit() is a no-op for them; requestInterruption() lets cooperative
+        # loops (e.g. the poller) exit fast. Signal them all FIRST so the waits
+        # below overlap instead of serialising (which caused the 1-2 s freeze).
+        for t in threads:
+            if t and t.isRunning():
+                t.requestInterruption()
+                t.quit()
+
+        # Give them a brief, bounded chance to finish; force-stop stragglers so
+        # we never destroy a running QThread (which would crash on exit).
+        for t in threads:
+            if t and t.isRunning():
+                if not t.wait(500):
+                    t.terminate()
+                    t.wait(200)
 
         logger.info("Application closing gracefully")
         event.accept()
