@@ -2080,7 +2080,35 @@ class MainWindow(QMainWindow):
 
     def _show_about(self):
         dialog = AboutDialog(theme_name=self._config.theme, parent=self)
+        dialog.check_updates_requested.connect(self._check_for_updates_manual)
         dialog.exec()
+
+    def _check_for_updates_manual(self):
+        """User-triggered update check with explicit feedback for every outcome."""
+        logger.info("Manual update check requested")
+        checker = UpdateChecker("thealps01-netizen", "nameweaver")
+        # Kept on self so the QThread is not garbage-collected mid-check.
+        self._manual_update_checker = checker
+        checker.update_available.connect(self._on_update_available)
+        checker.no_update.connect(self._on_no_update)
+        checker.check_failed.connect(self._on_update_check_failed)
+        checker.start()
+
+    def _on_no_update(self):
+        AlertDialog(
+            "Güncelleme Yok",
+            f"En güncel sürümü kullanıyorsunuz (v{__version__}).",
+            theme_name=self._config.theme,
+            parent=self,
+        ).exec()
+
+    def _on_update_check_failed(self):
+        AlertDialog(
+            "Denetlenemedi",
+            "Güncelleme denetlenemedi.\nİnternet bağlantınızı kontrol edip tekrar deneyin.",
+            theme_name=self._config.theme,
+            parent=self,
+        ).exec()
 
     # -----------------------------------------------------------------------
     # Config persistence

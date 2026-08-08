@@ -1,7 +1,7 @@
 """Application dialogs — About, etc."""
 
 import qtawesome as qta
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QDialog,
@@ -20,12 +20,15 @@ from version import __version__
 class AboutDialog(QDialog):
     """About dialog showing application info."""
 
+    # Emitted when the user clicks "Check for updates".
+    check_updates_requested = pyqtSignal()
+
     def __init__(self, theme_name: str = "dark", parent=None):
         super().__init__(parent)
         self._theme = get_theme(theme_name)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setFixedSize(440, 340)
+        self.setFixedSize(440, 400)
         self._drag_pos = None
         self._setup_ui()
 
@@ -133,7 +136,33 @@ class AboutDialog(QDialog):
         layout.addWidget(credits)
 
         layout.addStretch()
+
+        # Check-for-updates button
+        _ah2 = c.accent.lstrip("#")
+        _r2, _g2, _b2 = int(_ah2[0:2], 16), int(_ah2[2:4], 16), int(_ah2[4:6], 16)
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        update_btn = QPushButton("  Güncellemeleri Denetle")
+        update_btn.setIcon(qta.icon("mdi6.cloud-download-outline", color=c.bg))
+        update_btn.setIconSize(QSize(18, 18))
+        update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        update_btn.setFixedHeight(36)
+        update_btn.setStyleSheet(
+            f"QPushButton {{ background: {c.accent}; color: {c.bg}; border: none;"
+            f" border-radius: 6px; font-weight: bold; font-size: 13px; padding: 0 18px; }}"
+            f"QPushButton:hover {{ background: rgba({_r2},{_g2},{_b2},0.8); }}"
+        )
+        update_btn.clicked.connect(self._on_check_updates)
+        btn_row.addWidget(update_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
         outer.addWidget(container)
+
+    def _on_check_updates(self):
+        """Close the dialog and ask the main window to run an update check."""
+        self.check_updates_requested.emit()
+        self.close()
 
 
 class AlertDialog(QDialog):
