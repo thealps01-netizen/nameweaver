@@ -96,6 +96,34 @@ def is_official_provider(provider: str) -> bool:
     return (provider or "").strip().lower() in OFFICIAL_ORGS
 
 
+def base_model_owner(model) -> str:
+    """Owner/org of the upstream base model, if this is a derivative repo."""
+    bm = (getattr(model, "base_model", "") or "").strip().lower()
+    return bm.split("/")[0] if "/" in bm else ""
+
+
+def is_reupload(model) -> bool:
+    """True when this repo re-publishes *another owner's* model.
+
+    Uses the HF ``base_model`` relationship: a quant/finetune whose upstream
+    owner differs from the repo's own publisher is a community re-upload
+    (bartowski, TheBloke, …). Only populated for HF-fetched models.
+    """
+    owner = (getattr(model, "provider", "") or "").strip().lower()
+    base_owner = base_model_owner(model)
+    return bool(base_owner) and base_owner != owner
+
+
+def is_trusted_source(model) -> bool:
+    """Whether a model comes from a trusted (allowlisted first-party) publisher.
+
+    This is the safety signal shown to the user: trusted publishers are the
+    original authors of the weights you download. A re-upload by a different
+    owner is never trusted even if it derives from a trusted base model.
+    """
+    return is_official_provider(getattr(model, "provider", "")) and not is_reupload(model)
+
+
 # ---------------------------------------------------------------------------
 # Engine (motor) format compatibility
 # ---------------------------------------------------------------------------
@@ -276,6 +304,9 @@ class LlmModel:
     active_experts: int = 0
     license: str = ""
     release_date: str = ""
+    # Upstream origin repo ("owner/name") when this is a derivative / re-upload
+    # (populated for HF-fetched models via the base_model relationship).
+    base_model: str = ""
 
     def params_b(self) -> float:
         """Parse parameter count string to billions. E.g. '7B' -> 7.0, '8x7B' -> 56.0"""
@@ -524,6 +555,7 @@ def load_cached_models() -> list[LlmModel]:
                 active_experts=int(entry.get("active_experts", 0)),
                 license=entry.get("license", ""),
                 release_date=entry.get("release_date", ""),
+                base_model=entry.get("base_model", ""),
             )
             models.append(model)
         except (TypeError, ValueError) as exc:

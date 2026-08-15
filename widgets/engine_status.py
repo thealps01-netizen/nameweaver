@@ -77,6 +77,7 @@ class EngineStatusPill(QFrame):
         self._busy_names: set[str] = set()          # providers mid-start/stop
         self._busy_actions: dict[str, str] = {}     # name -> "start" | "stop"
         self._current_menu: QMenu | None = None
+        self._selected_name: str | None = None      # user-chosen featured engine
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 8, 14, 8)
@@ -164,10 +165,24 @@ class EngineStatusPill(QFrame):
         self._render()
         self._rebuild_popup_if_open()
 
+    def _primary(self) -> ProviderStatus | None:
+        """The engine featured in the pill: user's pick if still present, else auto."""
+        if self._selected_name:
+            for p in self._providers:
+                if p.name == self._selected_name:
+                    return p
+        return _pick_primary(self._providers)
+
+    def _select_engine(self, name: str) -> None:
+        """User picked an engine from the popup — feature it in the pill."""
+        self._selected_name = name
+        self._render()
+        self._rebuild_popup_if_open()
+
     def _render(self) -> None:
         """Paint the pill based on current providers + busy state."""
         state = _overall_state(self._providers)
-        primary = _pick_primary(self._providers)
+        primary = self._primary()
 
         t = get_theme(self._theme_name)
 
@@ -263,7 +278,7 @@ class EngineStatusPill(QFrame):
 
     def _on_action_clicked(self) -> None:
         """Primary button → start or install depending on state."""
-        primary = _pick_primary(self._providers)
+        primary = self._primary()
         if primary is None:
             return
         if primary.state == ProviderState.INSTALLED_OFF and primary.start_action:
@@ -336,11 +351,17 @@ class EngineStatusPill(QFrame):
             self._current_menu = None
 
     def _build_row(self, p: ProviderStatus, t: ThemeColors) -> QWidget:
+        featured = self._primary()
+        is_featured = featured is not None and featured.name == p.name
+
         row = QFrame()
         row.setStyleSheet(
-            f"QFrame {{ background: transparent; }}"
+            f"QFrame {{ background: transparent; border-radius: 8px; }}"
             f" QLabel {{ color: {t.fg}; background: transparent; border: none; }}"
         )
+        # Clicking the row (outside the action button) features this engine.
+        row.setCursor(Qt.CursorShape.PointingHandCursor)
+        row.mousePressEvent = lambda _e, n=p.name: self._select_engine(n)
         lay = QHBoxLayout(row)
         lay.setContentsMargins(12, 8, 12, 8)
         lay.setSpacing(10)
@@ -357,6 +378,15 @@ class EngineStatusPill(QFrame):
         name_lbl = QLabel(p.name)
         name_lbl.setStyleSheet("font-size: 12px; font-weight: 600;")
         lay.addWidget(name_lbl)
+
+        # Check mark on the currently-featured engine.
+        if is_featured:
+            check = QLabel()
+            check.setPixmap(
+                qta.icon("mdi6.check-circle", color=t.accent).pixmap(QSize(15, 15))
+            )
+            check.setStyleSheet("background: transparent; border: none;")
+            lay.addWidget(check)
 
         state_text = {
             ProviderState.READY: "running",

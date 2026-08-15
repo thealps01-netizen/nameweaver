@@ -1,8 +1,11 @@
 """Tests for provider/engine classification and installed-name matching."""
 
 from models import (
+    LlmModel,
     is_engine_compatible,
     is_official_provider,
+    is_reupload,
+    is_trusted_source,
     name_matches_installed,
     normalize_model_name,
 )
@@ -46,3 +49,25 @@ def test_engine_compatibility_by_format():
     assert is_engine_compatible("")  # unknown → treated as gguf-compatible
     assert not is_engine_compatible("awq")
     assert not is_engine_compatible("gptq")
+
+
+def test_trusted_first_party_source():
+    m = LlmModel(name="Qwen2.5-7B-Instruct", provider="Qwen")
+    assert is_trusted_source(m)
+    assert not is_reupload(m)
+
+
+def test_community_reupload_is_untrusted():
+    m = LlmModel(
+        name="Qwen2.5-7B-Instruct-GGUF",
+        provider="bartowski",
+        base_model="Qwen/Qwen2.5-7B-Instruct",
+    )
+    assert is_reupload(m)
+    assert not is_trusted_source(m)
+
+
+def test_trusted_org_quantizing_own_model_stays_trusted():
+    m = LlmModel(name="X", provider="Qwen", base_model="Qwen/X-base")
+    assert not is_reupload(m)
+    assert is_trusted_source(m)

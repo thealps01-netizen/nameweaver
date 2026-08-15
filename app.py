@@ -41,7 +41,13 @@ import qtawesome as qta
 from cfg import AppConfig, load_config, save_config, setup_logging
 from dialogs import AboutDialog, AlertDialog
 from hw import SystemSpecs
-from models import LlmModel, load_all_models, name_matches_installed
+from models import (
+    LlmModel,
+    is_reupload,
+    is_trusted_source,
+    load_all_models,
+    name_matches_installed,
+)
 from providers import ProviderState, ProviderStatus
 from scoring import ModelFit, analyze_all
 from themes import THEME_LABELS, generate_qss, get_theme
@@ -1759,6 +1765,24 @@ class MainWindow(QMainWindow):
     def _on_download_requested(self, fit: ModelFit):
         """User clicked Download in the detail panel."""
         model = fit.model
+
+        # Safety: warn before downloading files from an unverified publisher.
+        if not is_trusted_source(model):
+            origin = (
+                f"\n\nThis appears to be a community re-upload of:\n{model.base_model}"
+                if is_reupload(model) else ""
+            )
+            resp = QMessageBox.warning(
+                self,
+                "Unverified source",
+                f"'{model.provider}' is not a recognised first-party publisher.\n"
+                f"You would be downloading and running model files from this source."
+                f"{origin}\n\nContinue anyway?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if resp != QMessageBox.StandardButton.Yes:
+                return
 
         # Determine source: offer whichever engines are installed
         from PyQt6.QtWidgets import QInputDialog

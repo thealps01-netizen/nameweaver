@@ -7,7 +7,8 @@ from PyQt6.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt6.QtGui import QAction, QColor
+import qtawesome as qta
+from PyQt6.QtGui import QAction, QColor, QIcon
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -16,7 +17,12 @@ from PyQt6.QtWidgets import (
     QTableView,
 )
 
-from models import SUPPORTED_FORMATS, is_engine_compatible, is_official_provider
+from models import (
+    SUPPORTED_FORMATS,
+    is_engine_compatible,
+    is_reupload,
+    is_trusted_source,
+)
 from scoring import FitLevel, ModelFit, RunMode
 from themes import ThemeColors, get_theme
 
@@ -44,9 +50,11 @@ class ModelTableModel(QAbstractTableModel):
         self._fits: list[ModelFit] = []
         self._theme: ThemeColors = get_theme("dark")
         self._checked: list[int] = []
+        self._icon_cache: dict[tuple[str, str], QIcon] = {}
 
     def set_theme(self, theme_name: str):
         self._theme = get_theme(theme_name)
+        self._icon_cache.clear()  # colours changed — rebuild icons on next paint
         top_left = self.index(0, 0)
         bottom_right = self.index(self.rowCount() - 1, self.columnCount() - 1)
         if top_left.isValid() and bottom_right.isValid():
@@ -110,6 +118,8 @@ class ModelTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.DisplayRole:
             return self._display_data(fit, col_key)
+        elif role == Qt.ItemDataRole.DecorationRole:
+            return self._decoration(fit, col_key)
         elif role == Qt.ItemDataRole.ForegroundRole:
             return self._foreground_color(fit, col_key)
         elif role == Qt.ItemDataRole.TextAlignmentRole:
@@ -145,16 +155,31 @@ class ModelTableModel(QAbstractTableModel):
             return True
         return super().setData(index, value, role)
 
+    def _icon(self, name: str, color: str) -> QIcon:
+        key = (name, color)
+        icon = self._icon_cache.get(key)
+        if icon is None:
+            icon = qta.icon(name, color=color)
+            self._icon_cache[key] = icon
+        return icon
+
+    def _decoration(self, fit: ModelFit, col: str) -> QIcon | None:
+        """Modern status badges: publisher trust (Provider) + engine fit (Name)."""
+        c = self._theme
+        if col == "name":
+            if not is_engine_compatible(fit.model.format):
+                return self._icon("mdi6.engine-off-outline", c.error)
+        elif col == "provider":
+            if is_trusted_source(fit.model):
+                return self._icon("mdi6.shield-check", c.good)
+            # Not a trusted first-party publisher — flag as unverified source.
+            return self._icon("mdi6.shield-alert-outline", c.warning)
+        return None
+
     def _display_data(self, fit: ModelFit, col: str) -> str:
         if col == "name":
-            # "⚠" marks models whose format no installed engine can run.
-            if not is_engine_compatible(fit.model.format):
-                return f"{fit.model.name}  ⚠"
             return fit.model.name
         elif col == "provider":
-            # "✓" marks first-party / official publishers.
-            if is_official_provider(fit.model.provider):
-                return f"✓ {fit.model.provider}"
             return fit.model.provider
         elif col == "params":
             p = fit.model.params_b()
@@ -263,9 +288,16 @@ class ModelTableModel(QAbstractTableModel):
                 )
             return tip
         elif col == "provider":
-            if is_official_provider(fit.model.provider):
-                return f"✓ {fit.model.provider} — official / first-party publisher"
-            return f"{fit.model.provider} — community / re-upload (not first-party)"
+            if is_trusted_source(fit.model):
+                return f"✓ {fit.model.provider}\nTrusted first-party publisher."
+            tip = (
+                f"⚠ {fit.model.provider}\n"
+                "Unverified source — not a recognised first-party publisher.\n"
+                "Review the repo before downloading."
+            )
+            if is_reupload(fit.model):
+                tip += f"\nCommunity re-upload / quant of: {fit.model.base_model}"
+            return tip
         elif col == "score":
             sc = fit.score_components
             return (

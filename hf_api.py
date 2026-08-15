@@ -302,6 +302,17 @@ class HuggingFaceAPI:
         if isinstance(created, str) and len(created) >= 10:
             release_date = created[:10]
 
+        # Upstream origin repo, from the HF base_model relationship. Tags look
+        # like "base_model:Org/Model" or "base_model:quantized:Org/Model"; the
+        # last colon-separated segment is the "owner/name" repo id.
+        base_model = ""
+        for tag in tags:
+            if isinstance(tag, str) and tag.startswith("base_model:"):
+                candidate = tag.split(":")[-1]
+                if "/" in candidate:
+                    base_model = candidate
+                    break
+
         # Config-derived fields
         n_layers = 0
         n_heads = 0
@@ -332,6 +343,7 @@ class HuggingFaceAPI:
             active_experts=active_experts,
             license=license_,
             release_date=release_date,
+            base_model=base_model,
         )
 
 
