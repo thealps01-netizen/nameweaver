@@ -14,7 +14,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from scoring import FitLevel, ModelFit, RunMode
+from models import size_class
+from scoring import FitLevel, ModelFit, RunMode, pc_comfort
 from themes import ThemeColors, get_theme
 
 
@@ -300,6 +301,18 @@ class DetailPanel(QWidget):
         params_text = f"{params:.1f}B" if params >= 1 else f"{params * 1000:.0f}M"
         disk_gb = model.estimate_disk_gb(fit.best_quant)
 
+        # Size class + PC comfort (small-vs-large + how hard this PC works)
+        size_label, size_key = size_class(params)
+        size_color = {
+            "tiny": c.good, "small": c.good, "medium": c.fg,
+            "large": c.warning, "xl": c.error, "huge": c.error,
+        }.get(size_key, c.fg_muted)
+        comfort_label, comfort_key = pc_comfort(fit)
+        comfort_color = {
+            "effortless": c.good, "comfortable": c.good,
+            "demanding": c.warning, "heavy": c.warning, "too_much": c.error,
+        }.get(comfort_key, c.fg)
+
         ctx = model.ctx_length
         if ctx >= 1_000_000:
             ctx_text = f"{ctx / 1_000_000:.0f}M tokens"
@@ -317,7 +330,10 @@ class DetailPanel(QWidget):
 
         details_html = f"""
         <table style="border-spacing: 4px;">
-        <tr><td style="color:{c.fg_muted};">Parameters:</td><td>{params_text}</td></tr>
+        <tr><td style="color:{c.fg_muted};">Parameters:</td>
+            <td>{params_text} <span style="color:{size_color};">· {size_label}</span></td></tr>
+        <tr><td style="color:{c.fg_muted};">PC Load:</td>
+            <td><span style="color:{comfort_color};">{comfort_label}</span></td></tr>
         <tr><td style="color:{c.fg_muted};">Quantization:</td><td>{fit.best_quant}</td></tr>
         <tr><td style="color:{c.fg_muted};">Disk Size:</td><td>{disk_gb:.1f} GB</td></tr>
         <tr><td style="color:{c.fg_muted};">Context:</td><td>{ctx_text}</td></tr>

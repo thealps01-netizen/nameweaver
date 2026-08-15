@@ -414,6 +414,41 @@ def _cpu_tps_estimate(params: float, speed_mult: float, specs: SystemSpecs) -> f
 
 
 # ---------------------------------------------------------------------------
+# PC comfort — how easily the user's machine runs a given model
+# ---------------------------------------------------------------------------
+
+def pc_comfort(fit: "ModelFit") -> tuple[str, str]:
+    """How comfortably this PC runs the model → (label, key).
+
+    Combines run mode, memory utilisation and estimated throughput into one
+    plain-language read, so small (easy) vs large (straining) models are
+    obvious at a glance. Keys: effortless / comfortable / demanding / heavy /
+    too_much.
+    """
+    if fit.fit_level == FitLevel.TOO_TIGHT:
+        return ("Too much", "too_much")
+
+    rm = fit.run_mode
+    tps = fit.estimated_tps
+
+    if rm == RunMode.GPU:
+        if fit.utilization_pct <= 50 and tps >= 40:
+            return ("Effortless", "effortless")
+        return ("Comfortable", "comfortable")
+    if rm == RunMode.MOE_OFFLOAD:
+        return ("Demanding", "demanding")
+    if rm == RunMode.CPU_OFFLOAD:
+        return ("Heavy", "heavy")
+
+    # CPU-only — judged by achievable throughput
+    if tps >= 15:
+        return ("Comfortable", "comfortable")
+    if tps >= 6:
+        return ("Demanding", "demanding")
+    return ("Heavy", "heavy")
+
+
+# ---------------------------------------------------------------------------
 # Score computation
 # ---------------------------------------------------------------------------
 

@@ -6,6 +6,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-08-08
+### Added
+- Boyut sınıfı göstergesi: modeller Tiny / Small / Medium / Large / XL / Huge olarak renkli işaretleniyor (tablo "Size" sütunu + detay paneli). Küçük/büyük model tek bakışta ayırt edilir.
+- "PC Load" göstergesi: sistemin modeli ne kadar rahat çalıştırdığı — Effortless / Comfortable / Demanding / Heavy / Too much — run mode + bellek + TPS'ten türetilir (tablo sütunu + detay paneli).
+
+### Changed
+- Güven rozeti ikonları daha ayırt edici: güvenilir kaynak yeşil "check-decagram", doğrulanmamış kaynak kırmızı "alert-decagram" — renkler artık birbirine yakın değil.
+
 ## [0.1.6] - 2026-08-08
 ### Added
 - Yayıncı güven rozetleri (qtawesome ikonları): güvenilir birinci-taraf yayıncılar kalkan-onay (yeşil), doğrulanmamış/topluluk kaynaklar kalkan-uyarı ile işaretlenir. Güvenilir olmayan kaynaktan indirmeden önce uyarı diyaloğu çıkar.

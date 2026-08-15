@@ -147,6 +147,30 @@ def is_engine_compatible(fmt: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Model size class (quick small-vs-large read)
+# ---------------------------------------------------------------------------
+
+# (upper-bound in B, label, key). Last bucket is open-ended.
+_SIZE_BUCKETS = (
+    (1.0,   "Tiny",   "tiny"),
+    (4.0,   "Small",  "small"),
+    (15.0,  "Medium", "medium"),
+    (40.0,  "Large",  "large"),
+    (100.0, "XL",     "xl"),
+)
+
+
+def size_class(params_b: float) -> tuple[str, str]:
+    """Bucket a parameter count into a human size class → (label, key)."""
+    if params_b <= 0:
+        return ("—", "unknown")
+    for upper, label, key in _SIZE_BUCKETS:
+        if params_b < upper:
+            return (label, key)
+    return ("Huge", "huge")
+
+
+# ---------------------------------------------------------------------------
 # Model-name normalisation (robust matching against installed engine names)
 # ---------------------------------------------------------------------------
 

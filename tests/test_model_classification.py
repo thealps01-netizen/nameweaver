@@ -71,3 +71,34 @@ def test_trusted_org_quantizing_own_model_stays_trusted():
     m = LlmModel(name="X", provider="Qwen", base_model="Qwen/X-base")
     assert not is_reupload(m)
     assert is_trusted_source(m)
+
+
+def test_size_class_buckets():
+    from models import size_class
+
+    assert size_class(0.5)[1] == "tiny"
+    assert size_class(3)[1] == "small"
+    assert size_class(8)[1] == "medium"
+    assert size_class(20)[1] == "large"
+    assert size_class(50)[1] == "xl"
+    assert size_class(180)[1] == "huge"
+    assert size_class(0)[1] == "unknown"
+
+
+def test_pc_comfort_reads():
+    from scoring import FitLevel, ModelFit, RunMode, pc_comfort
+
+    effortless = ModelFit(
+        model=None, fit_level=FitLevel.PERFECT, run_mode=RunMode.GPU,
+        utilization_pct=15, estimated_tps=1600,
+    )
+    assert pc_comfort(effortless)[1] == "effortless"
+
+    too_tight = ModelFit(model=None, fit_level=FitLevel.TOO_TIGHT)
+    assert pc_comfort(too_tight)[1] == "too_much"
+
+    offload = ModelFit(
+        model=None, fit_level=FitLevel.GOOD, run_mode=RunMode.CPU_OFFLOAD,
+        utilization_pct=90, estimated_tps=8,
+    )
+    assert pc_comfort(offload)[1] == "heavy"

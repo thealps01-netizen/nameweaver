@@ -22,8 +22,9 @@ from models import (
     is_engine_compatible,
     is_reupload,
     is_trusted_source,
+    size_class,
 )
-from scoring import FitLevel, ModelFit, RunMode
+from scoring import FitLevel, ModelFit, RunMode, pc_comfort
 from themes import ThemeColors, get_theme
 
 COLUMNS = [
@@ -31,8 +32,10 @@ COLUMNS = [
     ("Model Name", "name"),
     ("Provider", "provider"),
     ("Parameters", "params"),
+    ("Size", "size"),
     ("Overall Score", "score"),
     ("Est. TPS", "tps"),
+    ("PC Load", "comfort"),
     ("Quantization", "quant"),
     ("Disk Size", "disk"),
     ("Run Type", "run_mode"),
@@ -40,6 +43,13 @@ COLUMNS = [
     ("Context Length", "ctx"),
     ("Fit Quality", "fit"),
 ]
+
+# Size class → colour ramp key (small = calm, huge = hot).
+_SIZE_ORDER = {"unknown": 0, "tiny": 1, "small": 2, "medium": 3,
+               "large": 4, "xl": 5, "huge": 6}
+# PC-comfort → sortable rank (easier = higher, so sorting surfaces easy ones).
+_COMFORT_ORDER = {"effortless": 5, "comfortable": 4, "demanding": 3,
+                  "heavy": 2, "too_much": 1}
 
 
 class ModelTableModel(QAbstractTableModel):
@@ -171,9 +181,10 @@ class ModelTableModel(QAbstractTableModel):
                 return self._icon("mdi6.engine-off-outline", c.error)
         elif col == "provider":
             if is_trusted_source(fit.model):
-                return self._icon("mdi6.shield-check", c.good)
-            # Not a trusted first-party publisher — flag as unverified source.
-            return self._icon("mdi6.shield-alert-outline", c.warning)
+                # Verified-badge look, green.
+                return self._icon("mdi6.check-decagram", c.good)
+            # Distinct shape + colour (red alert-badge) so the two never blur.
+            return self._icon("mdi6.alert-decagram-outline", c.error)
         return None
 
     def _display_data(self, fit: ModelFit, col: str) -> str:
@@ -184,6 +195,10 @@ class ModelTableModel(QAbstractTableModel):
         elif col == "params":
             p = fit.model.params_b()
             return f"{p:.1f} B" if p >= 1 else f"{p * 1000:.0f} M"
+        elif col == "size":
+            return size_class(fit.model.params_b())[0]
+        elif col == "comfort":
+            return pc_comfort(fit)[0]
         elif col == "score":
             return f"{fit.score:.1f} / 100"
         elif col == "tps":
@@ -244,6 +259,22 @@ class ModelTableModel(QAbstractTableModel):
             else:
                 return QColor(c.score_low)
 
+        if col == "size":
+            key = size_class(fit.model.params_b())[1]
+            ramp = {
+                "tiny": c.good, "small": c.good, "medium": c.fg,
+                "large": c.warning, "xl": c.error, "huge": c.error,
+            }
+            return QColor(ramp.get(key, c.fg_muted))
+
+        if col == "comfort":
+            key = pc_comfort(fit)[1]
+            cmap = {
+                "effortless": c.good, "comfortable": c.good,
+                "demanding": c.warning, "heavy": c.warning, "too_much": c.error,
+            }
+            return QColor(cmap.get(key, c.fg))
+
         return None
 
     def _sort_value(self, fit: ModelFit, col: str):
@@ -253,6 +284,10 @@ class ModelTableModel(QAbstractTableModel):
             return fit.model.provider.lower()
         elif col == "params":
             return fit.model.params_b()
+        elif col == "size":
+            return fit.model.params_b()
+        elif col == "comfort":
+            return _COMFORT_ORDER.get(pc_comfort(fit)[1], 0)
         elif col == "score":
             return fit.score
         elif col == "tps":
