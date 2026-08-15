@@ -65,6 +65,23 @@ class FilterBar(QWidget):
         self._fit_combo.currentIndexChanged.connect(self._on_filter_changed)
         outer.addWidget(self._fit_combo, stretch=1)
 
+        # PC Load — how comfortably this machine runs the model
+        self._comfort_combo = QComboBox()
+        self._comfort_combo.addItem("PC Load", "")
+        for key, label in (
+            ("effortless", "Effortless"),
+            ("comfortable", "Comfortable"),
+            ("demanding", "Demanding"),
+            ("heavy", "Heavy"),
+            ("too_much", "Too much"),
+        ):
+            self._comfort_combo.addItem(label, key)
+        self._comfort_combo.setToolTip(
+            "Filter by how comfortably your PC runs the model"
+        )
+        self._comfort_combo.currentIndexChanged.connect(self._on_filter_changed)
+        outer.addWidget(self._comfort_combo, stretch=1)
+
         # Quant
         self._quant_combo = QComboBox()
         self._quant_combo.addItem("Quant", "")
@@ -184,8 +201,8 @@ class FilterBar(QWidget):
         """Reset all filters to default values."""
         self._search.clear()
         for combo in (self._provider_combo, self._usecase_combo, self._fit_combo,
-                      self._quant_combo, self._license_combo, self._cap_combo,
-                      self._min_tps_combo):
+                      self._comfort_combo, self._quant_combo, self._license_combo,
+                      self._cap_combo, self._min_tps_combo):
             combo.setCurrentIndex(0)
         self._installed_checkbox.setChecked(False)
 
@@ -204,6 +221,10 @@ class FilterBar(QWidget):
     @property
     def fit_filter(self) -> str:
         return self._fit_combo.currentData() or ""
+
+    @property
+    def comfort_filter(self) -> str:
+        return self._comfort_combo.currentData() or ""
 
     @property
     def quant_filter(self) -> str:
@@ -236,6 +257,7 @@ class FilterBar(QWidget):
             "provider": self.provider_filter,
             "usecase": self.usecase_filter,
             "fit": self.fit_filter,
+            "comfort": self.comfort_filter,
             "quant": self.quant_filter,
             "license": self.license_filter,
             "capability": self.capability_filter,
@@ -253,6 +275,7 @@ class FilterBar(QWidget):
             (self._provider_combo, "provider"),
             (self._usecase_combo, "usecase"),
             (self._fit_combo, "fit"),
+            (self._comfort_combo, "comfort"),
             (self._quant_combo, "quant"),
             (self._license_combo, "license"),
             (self._cap_combo, "capability"),

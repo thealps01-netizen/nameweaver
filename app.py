@@ -1615,6 +1615,7 @@ class MainWindow(QMainWindow):
             provider=fb.provider_filter,
             usecase=fb.usecase_filter,
             fit=fb.fit_filter,
+            comfort=fb.comfort_filter,
             quant=fb.quant_filter,
             license=fb.license_filter,
             capability=fb.capability_filter,

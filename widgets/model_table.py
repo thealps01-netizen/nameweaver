@@ -368,6 +368,7 @@ class ModelFilterProxy(QSortFilterProxyModel):
         self._provider = ""
         self._usecase = ""
         self._fit = ""
+        self._comfort = ""
         self._quant = ""
         self._license = ""
         self._capability = ""
@@ -381,6 +382,7 @@ class ModelFilterProxy(QSortFilterProxyModel):
         provider: str = "",
         usecase: str = "",
         fit: str = "",
+        comfort: str = "",
         quant: str = "",
         license: str = "",
         capability: str = "",
@@ -391,6 +393,7 @@ class ModelFilterProxy(QSortFilterProxyModel):
         self._provider = provider.lower()
         self._usecase = usecase.lower()
         self._fit = fit
+        self._comfort = comfort
         self._quant = quant
         self._license = license.lower()
         self._capability = capability.lower()
@@ -423,6 +426,10 @@ class ModelFilterProxy(QSortFilterProxyModel):
 
         # Fit level filter
         if self._fit and fit.fit_level.value != self._fit:
+            return False
+
+        # PC Load (comfort) filter
+        if self._comfort and pc_comfort(fit)[1] != self._comfort:
             return False
 
         # Quantization filter (match either catalog quant or best_quant)

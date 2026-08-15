@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-08-08
+### Added
+- Üst filtre çubuğuna "PC Load" filtresi: modelleri sistemin çalıştırma rahatlığına göre (Effortless / Comfortable / Demanding / Heavy / Too much) süzebilirsin. Filtre durumu diğerleriyle birlikte kaydedilir.
+
 ## [0.1.7] - 2026-08-08
 ### Added
 - Boyut sınıfı göstergesi: modeller Tiny / Small / Medium / Large / XL / Huge olarak renkli işaretleniyor (tablo "Size" sütunu + detay paneli). Küçük/büyük model tek bakışta ayırt edilir.
