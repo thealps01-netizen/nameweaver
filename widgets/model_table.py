@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QTableView,
 )
 
+from models import SUPPORTED_FORMATS, is_engine_compatible, is_official_provider
 from scoring import FitLevel, ModelFit, RunMode
 from themes import ThemeColors, get_theme
 
@@ -146,8 +147,14 @@ class ModelTableModel(QAbstractTableModel):
 
     def _display_data(self, fit: ModelFit, col: str) -> str:
         if col == "name":
+            # "⚠" marks models whose format no installed engine can run.
+            if not is_engine_compatible(fit.model.format):
+                return f"{fit.model.name}  ⚠"
             return fit.model.name
         elif col == "provider":
+            # "✓" marks first-party / official publishers.
+            if is_official_provider(fit.model.provider):
+                return f"✓ {fit.model.provider}"
             return fit.model.provider
         elif col == "params":
             p = fit.model.params_b()
@@ -179,6 +186,11 @@ class ModelTableModel(QAbstractTableModel):
 
     def _foreground_color(self, fit: ModelFit, col: str) -> QColor | None:
         c = self._theme
+
+        # Dim the whole row when no installed engine can run this format —
+        # takes precedence over the per-column colours below.
+        if not is_engine_compatible(fit.model.format):
+            return QColor(c.fg_muted)
 
         if col == "fit":
             color_map = {
@@ -237,12 +249,23 @@ class ModelTableModel(QAbstractTableModel):
     def _tooltip(self, fit: ModelFit, col: str) -> str:
         if col == "name":
             caps = ", ".join(fit.model.capabilities) if fit.model.capabilities else "None"
-            return (
+            tip = (
                 f"{fit.model.name}\n"
                 f"Use case: {fit.model.use_case}\n"
                 f"Capabilities: {caps}\n"
                 f"License: {fit.model.license}"
             )
+            if not is_engine_compatible(fit.model.format):
+                supported = ", ".join(sorted(SUPPORTED_FORMATS)).upper()
+                tip += (
+                    f"\n\n⚠ Format '{fit.model.format}' won't run on the local "
+                    f"engines here (they support: {supported})."
+                )
+            return tip
+        elif col == "provider":
+            if is_official_provider(fit.model.provider):
+                return f"✓ {fit.model.provider} — official / first-party publisher"
+            return f"{fit.model.provider} — community / re-upload (not first-party)"
         elif col == "score":
             sc = fit.score_components
             return (

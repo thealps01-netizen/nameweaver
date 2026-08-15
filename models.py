@@ -2,6 +2,7 @@
 
 import json
 import logging
+import platform
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -41,6 +42,116 @@ class KvQuant(str, Enum):
     FP8 = "fp8"
     Q8_0 = "q8_0"
     Q4_0 = "q4_0"
+
+
+# ---------------------------------------------------------------------------
+# Provider (publisher) classification — "official" vs community/quantizer
+# ---------------------------------------------------------------------------
+
+# Publishers considered "official" first-party sources. Matched case-insensitively
+# against LlmModel.provider, which may be an HF org slug ("meta-llama") or a
+# display name ("Meta"), so both forms are listed.
+OFFICIAL_ORGS: frozenset[str] = frozenset({
+    "meta", "meta-llama", "facebook", "ai at meta",
+    "mistralai", "mistral", "mistral ai",
+    "qwen", "alibaba", "alibaba cloud", "qwenlm",
+    "google", "google deepmind",
+    "microsoft",
+    "deepseek", "deepseek-ai", "deepseek ai",
+    "nvidia",
+    "allenai", "ai2", "allen institute for ai",
+    "eleutherai",
+    "huggingfacetb", "hugging face", "huggingface",
+    "salesforce",
+    "moonshotai", "moonshot ai",
+    "zai-org", "z.ai", "zhipuai", "thudm",
+    "liquid ai", "liquidai", "liquid-ai",
+    "openai",
+    "cohere", "cohereforai", "cohere for ai",
+    "databricks",
+    "ibm", "ibm-granite", "ibm granite",
+    "stabilityai", "stability ai",
+    "xai",
+    "01-ai", "01.ai", "yi",
+    "baai",
+    "opengvlab",
+    "llava-hf",
+    "redhatai", "red hat ai",
+    "snowflake",
+    "upstage",
+    "tiiuae", "technology innovation institute",
+    "nousresearch", "nous research",
+    "internlm",
+    "apple",
+})
+
+
+def is_official_provider(provider: str) -> bool:
+    """True when the model's publisher is a recognised first-party source.
+
+    Community re-uploaders / quantizers (TheBloke, bartowski, unsloth,
+    QuantFactory, mradermacher, lmstudio-community, …) are not in the
+    allowlist and therefore return False.
+    """
+    return (provider or "").strip().lower() in OFFICIAL_ORGS
+
+
+# ---------------------------------------------------------------------------
+# Engine (motor) format compatibility
+# ---------------------------------------------------------------------------
+
+# Every runtime this app targets (Ollama, LM Studio, llama.cpp, Docker Model
+# Runner) runs GGUF. LM Studio additionally runs MLX, but only on macOS.
+# AWQ / GPTQ are GPU/vLLM formats that none of these engines can run.
+def _supported_formats() -> frozenset[str]:
+    fmts = {"gguf"}
+    if platform.system() == "Darwin":
+        fmts.add("mlx")
+    return frozenset(fmts)
+
+
+SUPPORTED_FORMATS: frozenset[str] = _supported_formats()
+
+
+def is_engine_compatible(fmt: str) -> bool:
+    """True when a model in this format can run on any supported local engine."""
+    return (fmt or "gguf").strip().lower() in SUPPORTED_FORMATS
+
+
+# ---------------------------------------------------------------------------
+# Model-name normalisation (robust matching against installed engine names)
+# ---------------------------------------------------------------------------
+
+def normalize_model_name(name: str) -> str:
+    """Collapse a model name to a comparable key.
+
+    Lowercases, drops an ``@sha256`` digest suffix, and removes every
+    non-alphanumeric character so that e.g. ``Llama-3.1-8B-Instruct`` and
+    ``llama3.1:8b-instruct`` both reduce to the same key ``llama318binstruct``.
+    The Ollama ``:tag`` is kept (folded in) because it usually carries the size
+    / variant, which improves rather than harms matching.
+    """
+    n = (name or "").lower().strip()
+    n = n.split("@", 1)[0]  # drop "@sha256:…" digest if present
+    return re.sub(r"[^a-z0-9]", "", n)
+
+
+def name_matches_installed(catalog_name: str, installed_names) -> bool:
+    """Whether a catalog model appears among an engine's installed model names.
+
+    Uses normalised, bidirectional containment so separator/case/format
+    differences between catalog names and engine names don't cause misses.
+    """
+    key = normalize_model_name(catalog_name)
+    if not key:
+        return False
+    for inst in installed_names:
+        ikey = normalize_model_name(inst)
+        if not ikey:
+            continue
+        if key in ikey or ikey in key:
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------

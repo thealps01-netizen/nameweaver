@@ -208,12 +208,13 @@ def available_providers_for_model(
     provider_statuses: Iterable,
 ) -> list[str]:
     """Return providers where this model appears installed."""
-    name_lower = model_name.lower()
+    from models import name_matches_installed
+
     result = []
     for p in provider_statuses:
         if not getattr(p, "available", False):
             continue
         installed = getattr(p, "installed_models", set()) or set()
-        if any(name_lower in inst.lower() for inst in installed):
+        if name_matches_installed(model_name, installed):
             result.append(p.name)
     return result

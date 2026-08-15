@@ -41,7 +41,7 @@ import qtawesome as qta
 from cfg import AppConfig, load_config, save_config, setup_logging
 from dialogs import AboutDialog, AlertDialog
 from hw import SystemSpecs
-from models import LlmModel, load_all_models
+from models import LlmModel, load_all_models, name_matches_installed
 from providers import ProviderState, ProviderStatus
 from scoring import ModelFit, analyze_all
 from themes import THEME_LABELS, generate_qss, get_theme
@@ -1319,8 +1319,7 @@ class MainWindow(QMainWindow):
             installed_names.update(p.installed_models)
 
         for fit in self._fits:
-            name_lower = fit.model.name.lower()
-            fit.installed = any(name_lower in inst.lower() for inst in installed_names)
+            fit.installed = name_matches_installed(fit.model.name, installed_names)
 
         # Refresh table if scoring is already done
         if self._fits:
