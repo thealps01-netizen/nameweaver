@@ -346,6 +346,13 @@ def _classify_fit_level(result: ModelFit) -> None:
 # ---------------------------------------------------------------------------
 
 
+# Real-world single-stream inference reaches only a fraction of the raw
+# memory-bandwidth ceiling; and even fast setups top out around a few hundred
+# tok/s for local chat. These keep the estimate believable.
+_REALWORLD_EFFICIENCY = 0.55
+_TPS_DISPLAY_CAP = 300.0
+
+
 def _estimate_tps(
     model: LlmModel,
     quant: str,
@@ -368,26 +375,31 @@ def _estimate_tps(
 
     # params > 0 (checked above) and bpp > 0 → weight_gb > 0 is guaranteed.
     if run_mode == RunMode.GPU and bw > 0:
-        # Bandwidth-bound: each token reads full model weights once
-        tps = (bw / weight_gb) * speed_mult
+        # Bandwidth-bound: each token reads full model weights once.
+        # The raw bw/weight ratio is a theoretical ceiling; real single-stream
+        # inference loses time to attention, KV-cache, sampling and framework
+        # overhead, so scale it down to a believable figure.
+        tps = (bw / weight_gb) * speed_mult * _REALWORLD_EFFICIENCY
     elif run_mode == RunMode.MOE_OFFLOAD and bw > 0:
         # Only active experts read from VRAM
         active_weight = model.active_params_b() * bpp
         if active_weight <= 0:
             return 0.0
-        tps = (bw / active_weight) * speed_mult * 0.7  # Overhead for offload coordination
+        tps = (bw / active_weight) * speed_mult * 0.7 * _REALWORLD_EFFICIENCY
     elif run_mode == RunMode.CPU_OFFLOAD:
         # Mixed: slower due to PCIe bottleneck
         # Estimate ~30-50% of pure GPU speed
         if bw > 0:
-            tps = (bw / weight_gb) * 0.35
+            tps = (bw / weight_gb) * 0.35 * _REALWORLD_EFFICIENCY
         else:
             tps = _cpu_tps_estimate(params, speed_mult, specs)
     else:
         # CPU only
         tps = _cpu_tps_estimate(params, speed_mult, specs)
 
-    return round(max(tps, 0.1), 1)
+    # Cap at a plausible single-stream local ceiling — theoretical ratios can
+    # produce absurd numbers (e.g. 1600 tok/s) for tiny models on fast GPUs.
+    return round(min(max(tps, 0.1), _TPS_DISPLAY_CAP), 1)
 
 
 def _cpu_tps_estimate(params: float, speed_mult: float, specs: SystemSpecs) -> float:
@@ -446,6 +458,27 @@ def pc_comfort(fit: "ModelFit") -> tuple[str, str]:
     if tps >= 6:
         return ("Demanding", "demanding")
     return ("Heavy", "heavy")
+
+
+def runnability(fit: "ModelFit") -> tuple[str, str]:
+    """One-glance traffic light: can this model run here, and how well?
+
+    Returns (label, key) with key ∈ {green, yellow, red}. Summarises engine
+    format compatibility + memory fit + run mode into a single signal, à la
+    LM Studio's green/yellow/red download indicator.
+    """
+    from models import is_engine_compatible
+
+    if not is_engine_compatible(fit.model.format):
+        return ("No engine", "red")
+    if fit.fit_level == FitLevel.TOO_TIGHT:
+        return ("Won't fit", "red")
+    if (
+        fit.run_mode in (RunMode.CPU_OFFLOAD, RunMode.MOE_OFFLOAD)
+        or fit.fit_level == FitLevel.MARGINAL
+    ):
+        return ("Tight", "yellow")
+    return ("Runs", "green")
 
 
 # ---------------------------------------------------------------------------

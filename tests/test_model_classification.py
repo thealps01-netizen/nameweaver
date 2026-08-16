@@ -102,3 +102,23 @@ def test_pc_comfort_reads():
         utilization_pct=90, estimated_tps=8,
     )
     assert pc_comfort(offload)[1] == "heavy"
+
+
+def test_runnability_traffic_light():
+    from scoring import FitLevel, ModelFit, RunMode, runnability
+
+    green = ModelFit(model=LlmModel(name="m", format="gguf"),
+                     fit_level=FitLevel.GOOD, run_mode=RunMode.GPU)
+    assert runnability(green)[1] == "green"
+
+    yellow = ModelFit(model=LlmModel(name="m", format="gguf"),
+                      fit_level=FitLevel.MARGINAL, run_mode=RunMode.CPU_OFFLOAD)
+    assert runnability(yellow)[1] == "yellow"
+
+    bad_format = ModelFit(model=LlmModel(name="m", format="awq"),
+                          fit_level=FitLevel.GOOD, run_mode=RunMode.GPU)
+    assert runnability(bad_format)[1] == "red"
+
+    too_tight = ModelFit(model=LlmModel(name="m", format="gguf"),
+                         fit_level=FitLevel.TOO_TIGHT)
+    assert runnability(too_tight)[1] == "red"

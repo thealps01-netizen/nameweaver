@@ -24,11 +24,12 @@ from models import (
     is_trusted_source,
     size_class,
 )
-from scoring import FitLevel, ModelFit, RunMode, pc_comfort
+from scoring import FitLevel, ModelFit, RunMode, pc_comfort, runnability
 from themes import ThemeColors, get_theme
 
 COLUMNS = [
     ("", "check"),              # 0 — checkbox only
+    ("Runs", "runs"),           # traffic-light: will it run here + how well
     ("Model Name", "name"),
     ("Provider", "provider"),
     ("Parameters", "params"),
@@ -44,12 +45,18 @@ COLUMNS = [
     ("Fit Quality", "fit"),
 ]
 
+# Columns hidden by default to reduce clutter — still available in the detail
+# panel, and can be re-shown from the header. Keyed by column key.
+DEFAULT_HIDDEN_COLUMNS = ("run_mode", "mem_pct")
+
 # Size class → colour ramp key (small = calm, huge = hot).
 _SIZE_ORDER = {"unknown": 0, "tiny": 1, "small": 2, "medium": 3,
                "large": 4, "xl": 5, "huge": 6}
 # PC-comfort → sortable rank (easier = higher, so sorting surfaces easy ones).
 _COMFORT_ORDER = {"effortless": 5, "comfortable": 4, "demanding": 3,
                   "heavy": 2, "too_much": 1}
+# Traffic-light → sortable rank + display order.
+_RUNS_ORDER = {"green": 3, "yellow": 2, "red": 1}
 
 
 class ModelTableModel(QAbstractTableModel):
@@ -174,8 +181,12 @@ class ModelTableModel(QAbstractTableModel):
         return icon
 
     def _decoration(self, fit: ModelFit, col: str) -> QIcon | None:
-        """Modern status badges: publisher trust (Provider) + engine fit (Name)."""
+        """Modern status badges: runnability + publisher trust + engine fit."""
         c = self._theme
+        if col == "runs":
+            key = runnability(fit)[1]
+            color = {"green": c.good, "yellow": c.warning, "red": c.error}.get(key, c.fg)
+            return self._icon("mdi6.circle", color)
         if col == "name":
             if not is_engine_compatible(fit.model.format):
                 return self._icon("mdi6.engine-off-outline", c.error)
@@ -188,6 +199,8 @@ class ModelTableModel(QAbstractTableModel):
         return None
 
     def _display_data(self, fit: ModelFit, col: str) -> str:
+        if col == "runs":
+            return runnability(fit)[0]
         if col == "name":
             return fit.model.name
         elif col == "provider":
@@ -226,6 +239,12 @@ class ModelTableModel(QAbstractTableModel):
 
     def _foreground_color(self, fit: ModelFit, col: str) -> QColor | None:
         c = self._theme
+
+        # Traffic-light column keeps its colour even on dimmed rows.
+        if col == "runs":
+            key = runnability(fit)[1]
+            return QColor({"green": c.good, "yellow": c.warning,
+                           "red": c.error}.get(key, c.fg))
 
         # Dim the whole row when no installed engine can run this format —
         # takes precedence over the per-column colours below.
@@ -278,6 +297,8 @@ class ModelTableModel(QAbstractTableModel):
         return None
 
     def _sort_value(self, fit: ModelFit, col: str):
+        if col == "runs":
+            return _RUNS_ORDER.get(runnability(fit)[1], 0)
         if col == "name":
             return fit.model.name.lower()
         elif col == "provider":
@@ -307,6 +328,14 @@ class ModelTableModel(QAbstractTableModel):
         return ""
 
     def _tooltip(self, fit: ModelFit, col: str) -> str:
+        if col == "runs":
+            label, key = runnability(fit)
+            base = {
+                "green": "Runs well on your machine.",
+                "yellow": "Runs, but tight — expect offloading or slower speeds.",
+                "red": "Won't run here (format not supported, or doesn't fit).",
+            }.get(key, "")
+            return f"{label} — {base}"
         if col == "name":
             caps = ", ".join(fit.model.capabilities) if fit.model.capabilities else "None"
             tip = (
@@ -338,7 +367,7 @@ class ModelTableModel(QAbstractTableModel):
             return (
                 f"Quality: {sc.quality:.1f}\n"
                 f"Speed: {sc.speed:.1f}\n"
-                f"Fit: {sc.fit:.1f}"
+                f"Match: {sc.fit:.1f}"
             )
         elif col == "mem_pct":
             return (
@@ -500,6 +529,18 @@ class ModelTableView(QTableView):
         # Revert to Interactive to avoid freezing on massive datasets (like 1000+ models)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setMinimumSectionSize(60)
+
+    def setModel(self, model):  # type: ignore[override]
+        super().setModel(model)
+        self._apply_default_column_visibility()
+
+    def _apply_default_column_visibility(self):
+        """Hide low-value columns by default and keep the traffic light narrow."""
+        for i, (_, key) in enumerate(COLUMNS):
+            if key in DEFAULT_HIDDEN_COLUMNS:
+                self.setColumnHidden(i, True)
+            elif key == "runs":
+                self.setColumnWidth(i, 72)
 
     def _setup_context_menu(self):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)

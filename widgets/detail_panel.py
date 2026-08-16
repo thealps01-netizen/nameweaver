@@ -151,7 +151,9 @@ class DetailPanel(QWidget):
         # Score bars
         self._quality_bar = ScoreBar("Quality", 0)
         self._speed_bar = ScoreBar("Speed", 0)
-        self._fit_bar = ScoreBar("Fit", 0)
+        # "Match" (not "Fit") — this score rewards using your hardware well and
+        # is deliberately distinct from the "Fit Level" sizing label below.
+        self._fit_bar = ScoreBar("Match", 0)
 
         for bar in [self._quality_bar, self._speed_bar, self._fit_bar]:
             self._content_layout.addWidget(bar)
@@ -394,7 +396,7 @@ class DetailPanel(QWidget):
             f"  Fit level: {fit.fit_level.value}\n"
             f"  Estimated TPS: {fit.estimated_tps:.1f} tok/s\n"
             f"  Score: {fit.score:.1f}/100 "
-            f"(Q={sc.quality:.0f} S={sc.speed:.0f} F={sc.fit:.0f})\n"
+            f"(Q={sc.quality:.0f} S={sc.speed:.0f} M={sc.fit:.0f})\n"
             f"  License: {m.license or 'Unknown'}\n"
         )
         clipboard = QApplication.clipboard()

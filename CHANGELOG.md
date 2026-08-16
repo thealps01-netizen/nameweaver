@@ -6,6 +6,15 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-08-08
+### Changed
+- Çakışan "Fit" bilgisi giderildi: detay panelindeki skor çubuğu "Fit" yerine "Match" olarak adlandırıldı (donanımı ne kadar iyi kullandığını ölçer); "Fit Level" ise tek net "sığma" sinyali olarak kaldı. Böylece küçük modelde "Match 75" ile "Fit Level: Perfect" artık çelişmiyor.
+- Gerçekçi Est. TPS: teorik bant-genişliği tavanı yerine gerçek-dünya verimlilik katsayısı (0.55) uygulanıp makul bir tavana (300 tok/s) sınırlandı — "1622 tok/s" gibi inandırıcı olmayan değerler düzeldi.
+- Tablo sadeleştirildi: "RAM Usage" ve "Run Type" sütunları varsayılan gizlendi (bilgi detay panelinde duruyor).
+
+### Added
+- "Runs" trafik-ışığı sütunu (LM Studio tarzı): 🟢 çalışır · 🟡 kıt/offload · 🔴 çalışmaz — motor formatı uyumu + bellek sığması + run mode tek bakışta özetlenir.
+
 ## [0.1.8] - 2026-08-08
 ### Added
 - Üst filtre çubuğuna "PC Load" filtresi: modelleri sistemin çalıştırma rahatlığına göre (Effortless / Comfortable / Demanding / Heavy / Too much) süzebilirsin. Filtre durumu diğerleriyle birlikte kaydedilir.
