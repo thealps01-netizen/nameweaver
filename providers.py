@@ -181,6 +181,49 @@ def detect_ollama() -> ProviderStatus:
     return status
 
 
+def _lmstudio_models_dir() -> Path:
+    """LM Studio's models directory — honours a user-customised location.
+
+    Reads ``downloadsFolder`` from ~/.lmstudio/settings.json (set when the user
+    moves their models folder) and falls back to the cross-platform default.
+    """
+    default = Path.home() / ".lmstudio" / "models"
+    settings = Path.home() / ".lmstudio" / "settings.json"
+    try:
+        data = json.loads(settings.read_text(encoding="utf-8"))
+        folder = data.get("downloadsFolder")
+        if isinstance(folder, str) and folder.strip():
+            custom = Path(folder)
+            if custom.is_dir():
+                return custom
+    except (OSError, ValueError):
+        pass
+    return default
+
+
+def _scan_lmstudio_disk_models() -> set[str]:
+    """Model names downloaded to LM Studio's models dir, independent of the server.
+
+    Lets already-downloaded models still show as installed when LM Studio's
+    local server isn't running (otherwise they look like they vanished).
+    """
+    names: set[str] = set()
+    base = _lmstudio_models_dir()
+    try:
+        if base.is_dir():
+            for gguf in base.rglob("*.gguf"):
+                names.add(gguf.stem)          # file name (e.g. Model-Q4_K_M)
+                names.add(gguf.parent.name)   # repo folder
+                try:
+                    rel = gguf.parent.relative_to(base)
+                    names.add(str(rel).replace("\\", "/"))  # publisher/repo id
+                except ValueError:
+                    pass
+    except OSError as exc:
+        logger.debug("LM Studio disk scan failed: %s", exc)
+    return names
+
+
 def detect_lm_studio() -> ProviderStatus:
     """Check if LM Studio's server mode is running and list loaded models."""
     status = ProviderStatus(name="LM Studio")
@@ -195,11 +238,16 @@ def detect_lm_studio() -> ProviderStatus:
             model_id = m.get("id", "") if isinstance(m, dict) else ""
             if model_id:
                 status.installed_models.add(model_id)
+        # Union with on-disk models so nothing is missed.
+        status.installed_models |= _scan_lmstudio_disk_models()
         return status
 
     if _lmstudio_is_installed():
         status.state = ProviderState.INSTALLED_OFF
         status.start_action = "start_lmstudio"
+        # Server is off, but downloaded models are still on disk — surface them
+        # so they don't appear to have disappeared after a restart/update.
+        status.installed_models |= _scan_lmstudio_disk_models()
     else:
         status.state = ProviderState.NOT_INSTALLED
         status.install_hint = _lmstudio_installer_url()

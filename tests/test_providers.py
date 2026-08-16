@@ -84,8 +84,9 @@ class TestDetectOllama:
 
 
 class TestDetectLmStudio:
+    @patch("providers._scan_lmstudio_disk_models", return_value=set())
     @patch("providers._http_get_json")
-    def test_lm_studio_available(self, mock_get):
+    def test_lm_studio_available(self, mock_get, _mock_disk):
         mock_get.return_value = {
             "data": [{"id": "model-1"}, {"id": "model-2"}]
         }
@@ -94,15 +95,27 @@ class TestDetectLmStudio:
         assert status.state == ProviderState.READY
         assert status.model_count == 2
 
+    @patch("providers._scan_lmstudio_disk_models", return_value=set())
     @patch("providers._lmstudio_is_installed")
     @patch("providers._http_get_json")
-    def test_lm_studio_installed_off(self, mock_get, mock_installed):
+    def test_lm_studio_installed_off(self, mock_get, mock_installed, _mock_disk):
         """Regression: Server mode off must not report 'not installed'."""
         mock_get.return_value = None
         mock_installed.return_value = True
         status = detect_lm_studio()
         assert status.state == ProviderState.INSTALLED_OFF
         assert status.start_action == "start_lmstudio"
+
+    @patch("providers._scan_lmstudio_disk_models",
+           return_value={"publisher/repo", "Model-Q4_K_M"})
+    @patch("providers._lmstudio_is_installed", return_value=True)
+    @patch("providers._http_get_json", return_value=None)
+    def test_lm_studio_off_still_lists_disk_models(self, _g, _i, _disk):
+        """Downloaded models remain visible even when the server is off."""
+        status = detect_lm_studio()
+        assert status.state == ProviderState.INSTALLED_OFF
+        assert "publisher/repo" in status.installed_models
+        assert "Model-Q4_K_M" in status.installed_models
 
     @patch("providers._lmstudio_is_installed")
     @patch("providers._http_get_json")

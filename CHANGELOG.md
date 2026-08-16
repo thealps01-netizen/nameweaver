@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-08-08
+### Fixed
+- "İndirdiğim modeller güncelleme sonrası kayboldu": modeller aslında silinmiyordu (LM Studio'nun kendi klasöründe duruyorlar) ama Nameweaver onları yalnızca sunucu açıkken görüyordu. Artık LM Studio modelleri **diskten de taranıyor** (sunucu kapalıyken bile kurulu görünürler). Özel model klasörü, LM Studio'nun `settings.json`'ındaki `downloadsFolder` okunarak destekleniyor — varsayılan ya da özel konum, her PC'de çalışır.
+
 ## [0.1.11] - 2026-08-08
 ### Fixed
 - Run motor seçimi: chat penceresi artık çalışan tüm motorları listeliyor (eşleşenler başta). Model LM Studio'da kuruluyken Ollama'ya sıkışıp kalma sorunu düzeldi — LM Studio sunucusu açıksa artık seçilebiliyor. Motor yoksa mesaj, LM Studio sunucusunu başlatmayı da anlatıyor.
