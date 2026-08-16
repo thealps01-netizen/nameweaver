@@ -2041,13 +2041,24 @@ class MainWindow(QMainWindow):
         from runner import available_providers_for_model
 
         model = fit.model
-        providers = available_providers_for_model(model.name, self._providers)
+        # Engines where this model is detected as installed…
+        matched = available_providers_for_model(model.name, self._providers)
+        # …plus every other engine that's currently running, so the user can
+        # always pick e.g. LM Studio even when name-matching missed it. Matched
+        # engines are listed first (pre-selected), running ones after.
+        running = [
+            p.name for p in self._providers if getattr(p, "available", False)
+        ]
+        providers = matched + [p for p in running if p not in matched]
+
         if not providers:
             QMessageBox.information(
                 self,
-                "Not installed",
-                f"'{model.name}' doesn't appear to be installed in any running provider.\n"
-                "Use the Download button first, or start a provider (Ollama/LM Studio).",
+                "No running engine",
+                f"To run '{model.name}', start an engine first.\n\n"
+                "Ollama: click Start on the engine bar.\n"
+                "LM Studio: open LM Studio and start its local server "
+                "(Developer → Start Server), then try again.",
             )
             return
 

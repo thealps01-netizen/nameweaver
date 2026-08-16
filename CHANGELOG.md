@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-08-08
+### Fixed
+- Run motor seçimi: chat penceresi artık çalışan tüm motorları listeliyor (eşleşenler başta). Model LM Studio'da kuruluyken Ollama'ya sıkışıp kalma sorunu düzeldi — LM Studio sunucusu açıksa artık seçilebiliyor. Motor yoksa mesaj, LM Studio sunucusunu başlatmayı da anlatıyor.
+
 ## [0.1.10] - 2026-08-08
 ### Fixed
 - Windows'ta motor başlatınca/durdurunca açılan cmd pencereleri kapatıldı. `ollama serve` artık yalnız CREATE_NO_WINDOW ile başlatılıyor (önceki CREATE_NO_WINDOW+DETACHED_PROCESS kombinasyonu Windows'ta yok sayılıp runner süreçlerinin kendi konsollarını açmasına yol açıyordu). taskkill / lms / kurulum gibi tüm konsol çağrıları da gizli pencereyle çalışacak şekilde sarmalandı.
