@@ -36,6 +36,34 @@ from providers import (
 
 logger = logging.getLogger(__name__)
 
+# ── Windows: run console tools without flashing a cmd window ────────────────────
+_subprocess_run = subprocess.run  # keep the real one for the wrapper below
+
+if sys.platform == "win32":
+    _CREATE_NO_WINDOW = 0x08000000
+    _CREATE_NEW_PROCESS_GROUP = 0x00000200
+
+    def _hidden_startupinfo():
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = subprocess.SW_HIDE
+        return si
+else:
+    _CREATE_NO_WINDOW = 0
+    _CREATE_NEW_PROCESS_GROUP = 0
+
+    def _hidden_startupinfo():
+        return None
+
+
+def _run(cmd, **kwargs):
+    """subprocess.run that never pops a console window on Windows."""
+    if sys.platform == "win32":
+        kwargs.setdefault("creationflags", _CREATE_NO_WINDOW)
+        kwargs.setdefault("startupinfo", _hidden_startupinfo())
+    return _subprocess_run(cmd, **kwargs)
+
+
 # How long to wait for a service to become ready after we launch it.
 _READY_TIMEOUT_SECONDS = 10.0
 _READY_POLL_INTERVAL = 0.5
@@ -65,8 +93,12 @@ def _popen_detached(cmd: list[str]) -> subprocess.Popen | None:
             "stdin": subprocess.DEVNULL,
         }
         if sys.platform == "win32":
-            # CREATE_NO_WINDOW (0x08000000) + DETACHED_PROCESS (0x00000008)
-            kwargs["creationflags"] = 0x08000000 | 0x00000008
+            # CREATE_NO_WINDOW keeps the daemon AND its child runner processes
+            # windowless. DETACHED_PROCESS is deliberately NOT combined here:
+            # Windows ignores CREATE_NO_WINDOW when DETACHED_PROCESS is set,
+            # which let `ollama serve`'s runners spawn their own cmd windows.
+            kwargs["creationflags"] = _CREATE_NO_WINDOW | _CREATE_NEW_PROCESS_GROUP
+            kwargs["startupinfo"] = _hidden_startupinfo()
         else:
             kwargs["start_new_session"] = True
         return subprocess.Popen(cmd, **kwargs)
@@ -157,7 +189,7 @@ def start_lmstudio_server() -> bool:
 
     try:
         # Non-blocking — returns quickly once server is spawned
-        subprocess.run(
+        _run(
             ["lms", "server", "start"],
             capture_output=True,
             timeout=10,
@@ -280,30 +312,30 @@ def stop_ollama_service() -> bool:
 
     try:
         if sys.platform == "win32":
-            subprocess.run(
+            _run(
                 ["taskkill", "/F", "/IM", "ollama.exe"],
                 capture_output=True,
                 timeout=10,
                 check=False,
             )
             # Also kill the tray app if present
-            subprocess.run(
+            _run(
                 ["taskkill", "/F", "/IM", "ollama app.exe"],
                 capture_output=True,
                 timeout=10,
                 check=False,
             )
         elif sys.platform == "darwin":
-            subprocess.run(
+            _run(
                 ["osascript", "-e", 'quit app "Ollama"'],
                 capture_output=True,
                 timeout=10,
                 check=False,
             )
-            subprocess.run(["pkill", "-x", "ollama"],
+            _run(["pkill", "-x", "ollama"],
                            capture_output=True, timeout=5, check=False)
         else:
-            subprocess.run(["pkill", "-x", "ollama"],
+            _run(["pkill", "-x", "ollama"],
                            capture_output=True, timeout=5, check=False)
     except (subprocess.TimeoutExpired, OSError) as exc:
         logger.warning("stop_ollama_service failed: %s", exc)
@@ -327,7 +359,7 @@ def stop_lmstudio_server() -> bool:
         return False
 
     try:
-        subprocess.run(
+        _run(
             ["lms", "server", "stop"],
             capture_output=True,
             timeout=10,
@@ -450,7 +482,7 @@ def run_install_command(command: str) -> tuple[bool, str]:
 
     try:
         if needs_shell:
-            result = subprocess.run(
+            result = _run(
                 command,
                 shell=True,
                 capture_output=True,
@@ -459,7 +491,7 @@ def run_install_command(command: str) -> tuple[bool, str]:
                 check=False,
             )
         else:
-            result = subprocess.run(
+            result = _run(
                 shlex.split(command, posix=(sys.platform != "win32")),
                 shell=False,
                 capture_output=True,

@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-08-08
+### Fixed
+- Windows'ta motor başlatınca/durdurunca açılan cmd pencereleri kapatıldı. `ollama serve` artık yalnız CREATE_NO_WINDOW ile başlatılıyor (önceki CREATE_NO_WINDOW+DETACHED_PROCESS kombinasyonu Windows'ta yok sayılıp runner süreçlerinin kendi konsollarını açmasına yol açıyordu). taskkill / lms / kurulum gibi tüm konsol çağrıları da gizli pencereyle çalışacak şekilde sarmalandı.
+
 ## [0.1.9] - 2026-08-08
 ### Changed
 - Çakışan "Fit" bilgisi giderildi: detay panelindeki skor çubuğu "Fit" yerine "Match" olarak adlandırıldı (donanımı ne kadar iyi kullandığını ölçer); "Fit Level" ise tek net "sığma" sinyali olarak kaldı. Böylece küçük modelde "Match 75" ile "Fit Level: Perfect" artık çelişmiyor.
