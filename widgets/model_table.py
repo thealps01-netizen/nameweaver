@@ -579,12 +579,18 @@ class ModelTableView(QTableView):
 
         menu.addSeparator()
 
+        compatible = is_engine_compatible(fit.model.format)
         download_action = QAction("Download…", self)
+        download_action.setEnabled(compatible)  # AWQ/GPTQ can't run locally
         download_action.triggered.connect(lambda: self.download_requested.emit(fit))
         menu.addAction(download_action)
 
         run_action = QAction("Run (Chat)…", self)
-        can_run = getattr(fit, "installed", False) and fit.fit_level != FitLevel.TOO_TIGHT
+        can_run = (
+            compatible
+            and getattr(fit, "installed", False)
+            and fit.fit_level != FitLevel.TOO_TIGHT
+        )
         run_action.setEnabled(can_run)
         run_action.triggered.connect(lambda: self.run_requested.emit(fit))
         menu.addAction(run_action)

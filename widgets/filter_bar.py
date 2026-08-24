@@ -287,6 +287,8 @@ class FilterBar(QWidget):
                 combo.setCurrentIndex(idx)
             combo.blockSignals(False)
 
+        # "Installed" always starts unchecked (show all models) — it is a
+        # transient view toggle, not a persisted preference.
         self._installed_checkbox.blockSignals(True)
-        self._installed_checkbox.setChecked(bool(filters.get("installed_only", False)))
+        self._installed_checkbox.setChecked(False)
         self._installed_checkbox.blockSignals(False)

@@ -234,14 +234,26 @@ class DetailPanel(QWidget):
             self._copy_btn.setEnabled(False)
             return
 
-        # Enable action buttons
-        self._download_btn.setEnabled(True)
+        # A format no local engine can run (AWQ/GPTQ…) is a dead end here —
+        # disable Download/Run and point the user at the GGUF version instead.
+        compatible = is_engine_compatible(fit.model.format)
+        incompatible_hint = (
+            f"{fit.model.format.upper()} won't run on your local engines — "
+            "look for the GGUF version of this model."
+        )
+        self._download_btn.setEnabled(compatible)
+        self._download_btn.setToolTip("" if compatible else incompatible_hint)
         self._copy_btn.setEnabled(True)
-        # Run only if installed AND fits
-        can_run = getattr(fit, "installed", False) and fit.fit_level != FitLevel.TOO_TIGHT
+        # Run only if the format is runnable, it's installed, and it fits.
+        can_run = (
+            compatible
+            and getattr(fit, "installed", False)
+            and fit.fit_level != FitLevel.TOO_TIGHT
+        )
         self._run_btn.setEnabled(can_run)
         self._run_btn.setToolTip(
             "Chat with this model" if can_run
+            else incompatible_hint if not compatible
             else "Install the model first via Download"
         )
 
@@ -338,7 +350,7 @@ class DetailPanel(QWidget):
         if not is_engine_compatible(model.format):
             runs_note = (
                 f'<span style="color:{c.fg_muted};"> — {model.format.upper()} '
-                "won't run on your local engines (they run GGUF)</span>"
+                "won't run locally; use the GGUF version of this model</span>"
             )
         installed_in = getattr(fit, "installed_providers", []) or []
         if installed_in:

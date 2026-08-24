@@ -6,6 +6,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-08-24
+### Fixed
+- "Installed" filtresi artık her açılışta **kapalı** başlıyor (tüm modeller görünür); istersen elle açarsın. Önceki oturumdan işaretli kalmıyor.
+
+### Changed
+- Yerel motorların çalıştıramayacağı formatlar (AWQ/GPTQ) için detay panelinde ve sağ tık menüsünde **Download ve Run kapatıldı**; tooltip/not "GGUF sürümünü kullan" diyor. Böylece AWQ satırında boşuna indirme/çalıştırma denenmiyor.
+
 ## [0.1.16] - 2026-08-24
 ### Changed
 - Chat penceresinde artık **yalnızca modeli gerçekten içeren, çalışan motorlar** seçilebiliyor. Modeli içermeyen bir motoru seçip 404 alma durumu kalktı; model çalışan hiçbir motorda yoksa net "önce indir" / "motoru başlat" uyarısı çıkar.
