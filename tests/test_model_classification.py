@@ -140,18 +140,3 @@ def test_runnability_traffic_light():
     too_tight = ModelFit(model=LlmModel(name="m", format="gguf"),
                          fit_level=FitLevel.TOO_TIGHT)
     assert runnability(too_tight)[1] == "red"
-
-
-def test_installed_models_dedup_collapses_aliases():
-    from widgets.installed_models import _dedup_display
-
-    aliases = {
-        "qwen2.5-0.5b-instruct",
-        "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
-        "Qwen2.5-0.5B-Instruct-GGUF",
-        "qwen2.5-0.5b-instruct-q8_0",
-        "text-embedding-nomic-embed-text-v1.5",
-    }
-    out = _dedup_display(aliases)
-    # The four Qwen aliases collapse to one; the embedding stays separate.
-    assert out == ["qwen2.5-0.5b-instruct", "text-embedding-nomic-embed-text-v1.5"]

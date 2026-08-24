@@ -502,11 +502,6 @@ class MainWindow(QMainWindow):
         self._update_btn.clicked.connect(self._start_hf_update)
         sidebar_layout.addWidget(self._update_btn)
 
-        # Installed models (ground truth from the engines)
-        self._installed_btn = _nav_btn("mdi6.harddisk", "My Models")
-        self._installed_btn.clicked.connect(self._show_installed_models)
-        sidebar_layout.addWidget(self._installed_btn)
-
         # Compare
         self._compare_btn = _nav_btn("mdi6.scale-balance", "Compare")
         self._compare_btn.clicked.connect(self._open_comparison)
@@ -2147,15 +2142,6 @@ class MainWindow(QMainWindow):
     # -----------------------------------------------------------------------
     # Comparison
     # -----------------------------------------------------------------------
-
-    def _show_installed_models(self):
-        """Open the ground-truth installed-models view (reads the engines)."""
-        from widgets.installed_models import InstalledModelsDialog
-
-        dlg = InstalledModelsDialog(theme_name=self._config.theme, parent=self)
-        # If a model was removed, refresh the catalog's installed markers too.
-        dlg.changed.connect(self._refresh_providers)
-        dlg.exec()
 
     def _open_comparison(self):
         fits_to_compare = self._table_model.checked_fits()
