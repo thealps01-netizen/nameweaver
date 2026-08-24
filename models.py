@@ -369,20 +369,26 @@ class LlmModel:
     base_model: str = ""
 
     def params_b(self) -> float:
-        """Parse parameter count string to billions. E.g. '7B' -> 7.0, '8x7B' -> 56.0"""
+        """Parse parameter count to billions. '7B'->7.0, '135M'->0.135, '8x7B'->56.0"""
         s = self.parameter_count.upper().strip()
         if not s:
             return 0.0
 
         # MoE pattern: "8x7B"
-        moe = re.match(r"(\d+)[xX](\d+\.?\d*)[bB]?", s)
+        moe = re.match(r"(\d+)[xX](\d+\.?\d*)", s)
         if moe:
             return float(moe.group(1)) * float(moe.group(2))
 
-        # Standard: "7B", "1.5B", "70B"
-        m = re.match(r"(\d+\.?\d*)\s*[bB]?", s)
+        # Value + unit: B = billions, M = millions, K = thousands (default B).
+        m = re.match(r"(\d+\.?\d*)\s*([BMK])?", s)
         if m:
-            return float(m.group(1))
+            val = float(m.group(1))
+            unit = m.group(2) or "B"
+            if unit == "M":
+                return val / 1_000.0
+            if unit == "K":
+                return val / 1_000_000.0
+            return val
 
         return 0.0
 

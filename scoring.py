@@ -103,6 +103,7 @@ class ModelFit:
     best_quant: str = ""
     notes: list[str] = field(default_factory=list)
     installed: bool = False
+    installed_providers: list[str] = field(default_factory=list)  # engines that have it
 
     @classmethod
     def analyze(

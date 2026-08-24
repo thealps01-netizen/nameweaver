@@ -507,6 +507,7 @@ class ModelTableView(QTableView):
     model_selected = pyqtSignal(object)  # ModelFit or None
     download_requested = pyqtSignal(object)  # ModelFit
     run_requested = pyqtSignal(object)  # ModelFit
+    remove_requested = pyqtSignal(object)  # ModelFit
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -587,6 +588,15 @@ class ModelTableView(QTableView):
         run_action.setEnabled(can_run)
         run_action.triggered.connect(lambda: self.run_requested.emit(fit))
         menu.addAction(run_action)
+
+        installed_in = getattr(fit, "installed_providers", []) or []
+        remove_label = (
+            f"Remove from {', '.join(installed_in)}…" if installed_in else "Remove from engine…"
+        )
+        remove_action = QAction(remove_label, self)
+        remove_action.setEnabled(bool(installed_in))
+        remove_action.triggered.connect(lambda: self.remove_requested.emit(fit))
+        menu.addAction(remove_action)
 
         menu.exec(self.viewport().mapToGlobal(pos))
 

@@ -6,6 +6,15 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-08-24
+### Fixed
+- Parametre sayısı ayrıştırma hatası: "135M" gibi milyon (ve "83K" bin) değerleri artık milyar sayılmıyor. SmolLM-135M artık "135.0 B / Huge / 42 GB" yerine doğru şekilde küçük görünüyor.
+
+### Added
+- Model kaldırma: tabloda sağ tık → "Remove from …" ile kurulu modeli motordan sil (Ollama API delete; LM Studio disk klasörü, güvenli kontrol + onay). Kaldırınca liste yenilenir.
+- "Hangi motorda kurulu" görünürlüğü: detay panelinde **Installed:** satırı motor adlarını gösteriyor; sağ tık menüsü de "Remove from Ollama/LM Studio" diye yazıyor.
+- Detay panelinde **Runs** durumu: AWQ/GPTQ gibi çalışmayan formatlar için "won't run on your local engines (they run GGUF)" notu — "No engine" ile Run Mode/Fit arasındaki çelişki giderildi.
+
 ## [0.1.14] - 2026-08-24
 ### Fixed
 - Kurulu-model eşleştirmesindeki yanlış pozitif giderildi: `gemma-2-2b-jpn-it` gibi bir varyant, sende kurulu olan farklı bir modele (`gemma2:2b`) artık yanlışlıkla "yüklü" eşleşmiyor. Eşleşme boyut + kimlik token'larına (aile/sürüm/varyant) bakıyor; sadece jenerik etiketleri (instruct/chat/quant/format) ve yayıncı önekini yok sayıyor.

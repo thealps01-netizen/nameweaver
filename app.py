@@ -683,6 +683,7 @@ class MainWindow(QMainWindow):
         self._table_view.model_selected.connect(self._on_model_selected)
         self._table_view.download_requested.connect(self._on_download_requested)
         self._table_view.run_requested.connect(self._on_run_requested)
+        self._table_view.remove_requested.connect(self._on_remove_requested)
         self._table_view.set_default_column_widths()
         table_card_layout.addWidget(self._table_view)
         content_layout.addWidget(table_card, stretch=1)
@@ -1321,13 +1322,14 @@ class MainWindow(QMainWindow):
         available = [p for p in providers if p.available]
         logger.info("Providers: %d available (%s)", len(available), ", ".join(p.name for p in available))
 
-        # Mark installed models
-        installed_names = set()
-        for p in providers:
-            installed_names.update(p.installed_models)
-
+        # Mark installed models, tracking which engine(s) hold each one.
         for fit in self._fits:
-            fit.installed = name_matches_installed(fit.model.name, installed_names)
+            provs = [
+                p.name for p in providers
+                if name_matches_installed(fit.model.name, p.installed_models or set())
+            ]
+            fit.installed_providers = provs
+            fit.installed = bool(provs)
 
         # Refresh table if scoring is already done
         if self._fits:
@@ -2108,6 +2110,38 @@ class MainWindow(QMainWindow):
         dialog = ChatDialog(model.name, providers, model_ids=model_ids, parent=self)
         dialog.show()
         # Don't exec() — keep it modeless so the user can browse the catalog too
+
+    def _on_remove_requested(self, fit: ModelFit):
+        """User asked to uninstall a model from the engine(s) that hold it."""
+        from runner import installed_model_ids
+
+        ids = installed_model_ids(fit.model.name, self._providers)
+        if not ids:
+            QMessageBox.information(
+                self, "Not installed",
+                f"'{fit.model.name}' isn't installed in any engine.",
+            )
+            return
+
+        engines = ", ".join(ids.keys())
+        resp = QMessageBox.question(
+            self, "Remove model",
+            f"Remove '{fit.model.name}' from {engines}?\n\n"
+            "This permanently deletes the downloaded model files.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if resp != QMessageBox.StandardButton.Yes:
+            return
+
+        from provider_control import remove_model
+        results = []
+        for pname, mid in ids.items():
+            ok, msg = remove_model(pname, mid)
+            logger.info("Remove %s from %s: %s", mid, pname, msg)
+            results.append(f"{pname}: {msg}")
+        QMessageBox.information(self, "Remove model", "\n".join(results))
+        self._refresh_providers()
 
     # -----------------------------------------------------------------------
     # Comparison

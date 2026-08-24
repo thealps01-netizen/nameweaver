@@ -82,6 +82,15 @@ def test_trusted_org_quantizing_own_model_stays_trusted():
     assert is_trusted_source(m)
 
 
+def test_params_b_unit_parsing():
+    # Millions and thousands must not be read as billions (SmolLM-135M bug).
+    assert abs(LlmModel(name="x", parameter_count="135M").params_b() - 0.135) < 1e-6
+    assert abs(LlmModel(name="x", parameter_count="500M").params_b() - 0.5) < 1e-6
+    assert abs(LlmModel(name="x", parameter_count="83K").params_b() - 8.3e-5) < 1e-9
+    assert LlmModel(name="x", parameter_count="7B").params_b() == 7.0
+    assert LlmModel(name="x", parameter_count="8x7B").params_b() == 56.0
+
+
 def test_size_class_buckets():
     from models import size_class
 

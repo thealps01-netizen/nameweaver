@@ -14,8 +14,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import size_class
-from scoring import FitLevel, ModelFit, RunMode, pc_comfort
+from models import is_engine_compatible, size_class
+from scoring import FitLevel, ModelFit, RunMode, pc_comfort, runnability
 from themes import ThemeColors, get_theme
 
 
@@ -330,8 +330,29 @@ class DetailPanel(QWidget):
                 f'{model.active_experts} active)'
             )
 
+        # Runnability (traffic light) + which engine(s) have it installed.
+        runs_label, runs_key = runnability(fit)
+        runs_color = {"green": c.good, "yellow": c.warning,
+                      "red": c.error}.get(runs_key, c.fg)
+        runs_note = ""
+        if not is_engine_compatible(model.format):
+            runs_note = (
+                f'<span style="color:{c.fg_muted};"> — {model.format.upper()} '
+                "won't run on your local engines (they run GGUF)</span>"
+            )
+        installed_in = getattr(fit, "installed_providers", []) or []
+        if installed_in:
+            installed_html = (
+                f'<span style="color:{c.good};">{", ".join(installed_in)}</span>'
+            )
+        else:
+            installed_html = f'<span style="color:{c.fg_muted};">Not installed</span>'
+
         details_html = f"""
         <table style="border-spacing: 4px;">
+        <tr><td style="color:{c.fg_muted};">Runs:</td>
+            <td><span style="color:{runs_color}; font-weight:600;">{runs_label}</span>{runs_note}</td></tr>
+        <tr><td style="color:{c.fg_muted};">Installed:</td><td>{installed_html}</td></tr>
         <tr><td style="color:{c.fg_muted};">Parameters:</td>
             <td>{params_text} <span style="color:{size_color};">· {size_label}</span></td></tr>
         <tr><td style="color:{c.fg_muted};">PC Load:</td>

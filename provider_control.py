@@ -13,6 +13,7 @@ these functions block up to ~10 seconds waiting for readiness.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shlex
@@ -20,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 import webbrowser
 from pathlib import Path
@@ -503,3 +505,67 @@ def run_install_command(command: str) -> tuple[bool, str]:
         return result.returncode == 0, output
     except (subprocess.TimeoutExpired, OSError) as exc:
         return False, f"Command failed: {exc}"
+
+
+# ---------------------------------------------------------------------------
+# Removal / uninstall
+# ---------------------------------------------------------------------------
+
+
+def remove_model(provider_name: str, model_id: str) -> tuple[bool, str]:
+    """Remove an installed model from the given engine. Returns (ok, message)."""
+    p = (provider_name or "").strip().lower()
+    if p == "ollama":
+        return _remove_ollama(model_id)
+    if p in ("lm studio", "lmstudio"):
+        return _remove_lmstudio(model_id)
+    return False, f"Removal isn't supported for {provider_name}."
+
+
+def _remove_ollama(model_id: str) -> tuple[bool, str]:
+    body = json.dumps({"name": model_id}).encode("utf-8")
+    req = urllib.request.Request(
+        f"{_ollama_host()}/api/delete",
+        data=body,
+        method="DELETE",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            return True, f"Removed {model_id} from Ollama."
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return False, f"{model_id} not found in Ollama."
+        return False, f"Ollama error: {exc}"
+    except (urllib.error.URLError, OSError) as exc:
+        return False, f"Could not reach Ollama: {exc}"
+
+
+def _remove_lmstudio(model_id: str) -> tuple[bool, str]:
+    """Delete a model's folder from LM Studio's models directory (guarded)."""
+    from models import name_matches_installed
+    from providers import _lmstudio_models_dir
+
+    base = _lmstudio_models_dir()
+    if not base.is_dir():
+        return False, "LM Studio models folder not found."
+    base_resolved = base.resolve()
+
+    target = None
+    for gguf in base.rglob("*.gguf"):
+        rel = gguf.parent.relative_to(base)
+        candidates = [gguf.stem, gguf.parent.name, str(rel).replace("\\", "/")]
+        if model_id in candidates or name_matches_installed(model_id, candidates):
+            target = gguf.parent.resolve()
+            break
+    if target is None:
+        return False, f"{model_id} not found on disk."
+
+    # Safety: only ever delete a folder strictly inside the models directory.
+    if target == base_resolved or base_resolved not in target.parents:
+        return False, "Refusing to delete outside the LM Studio models folder."
+    try:
+        shutil.rmtree(target)
+        return True, f"Deleted {target}."
+    except OSError as exc:
+        return False, f"Delete failed: {exc}"
