@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-08-24
+### Reverted
+- "My Models" (v0.1.18) geri alındı — istenmedi.
+
 ## [0.1.17] - 2026-08-24
 ### Fixed
 - "Installed" filtresi artık her açılışta **kapalı** başlıyor (tüm modeller görünür); istersen elle açarsın. Önceki oturumdan işaretli kalmıyor.
