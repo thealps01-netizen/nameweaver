@@ -129,3 +129,26 @@ class TestAvailableProvidersForModel:
                 self.installed_models = {"something-else"}
 
         assert runner.available_providers_for_model("llama3", [P()]) == []
+
+
+class _FakeProvider:
+    def __init__(self, name, models, available=True):
+        self.name = name
+        self.installed_models = set(models)
+        self.available = available
+
+
+def test_installed_model_ids_maps_catalog_to_engine_id():
+    provs = [
+        _FakeProvider("Ollama", {"gemma2:2b", "llama3.1:8b"}),
+        _FakeProvider("LM Studio", {"google/gemma-2-2b-jpn-it"}),
+    ]
+    ids = runner.installed_model_ids("gemma-2-2b-jpn-it", provs)
+    # Real engine ids, not the catalog name (prevents 404 on run).
+    assert ids["Ollama"] == "gemma2:2b"
+    assert ids["LM Studio"] == "google/gemma-2-2b-jpn-it"
+
+
+def test_installed_model_ids_empty_when_no_match():
+    provs = [_FakeProvider("Ollama", {"mistral:7b"})]
+    assert runner.installed_model_ids("gemma-2-2b", provs) == {}

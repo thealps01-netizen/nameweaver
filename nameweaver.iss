@@ -1,6 +1,6 @@
 #define AppName    "Nameweaver"
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.1.12"
 #endif
 #define AppExe     "Nameweaver.exe"
 #define AppDir     "dist\Nameweaver"

@@ -218,3 +218,26 @@ def available_providers_for_model(
         if name_matches_installed(model_name, installed):
             result.append(p.name)
     return result
+
+
+def installed_model_ids(model_name: str, provider_statuses: Iterable) -> dict[str, str]:
+    """Map provider name -> the actual installed model id matching this model.
+
+    Engines expect their own model id (e.g. Ollama 'gemma2:2b', not the catalog
+    name 'gemma-2-2b-jpn-it'). Sending the catalog name causes 404s, so callers
+    must resolve the real id per engine before running.
+    """
+    from models import normalize_model_name
+
+    key = normalize_model_name(model_name)
+    result: dict[str, str] = {}
+    if not key:
+        return result
+    for p in provider_statuses:
+        installed = getattr(p, "installed_models", set()) or set()
+        for inst in installed:
+            ik = normalize_model_name(inst)
+            if ik and (key in ik or ik in key):
+                result[p.name] = inst
+                break
+    return result

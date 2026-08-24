@@ -313,6 +313,7 @@ class MainWindow(QMainWindow):
         self._provider_start_worker = None  # ProviderStartWorker — active start action
         self._provider_stop_worker = None   # ProviderStopWorker — active stop action
         self._scoring_worker: ScoringWorker | None = None
+        self._download_workers: list = []  # kept alive; stopped on close
         self._hf_worker: HFUpdateWorker | None = None
 
         self._setup_ui()
@@ -1649,13 +1650,22 @@ class MainWindow(QMainWindow):
     # -----------------------------------------------------------------------
 
     def _pick_ollama_candidate(self, model_name: str) -> str | None:
-        """Guess an Ollama tag from a HuggingFace-style model name."""
-        # Heuristic: "Llama-3.1-8B-Instruct" → "llama3.1:8b-instruct"
-        # Fallback: use the first segment lowercased.
-        name = model_name.lower()
-        # Strip common suffixes
-        name = name.replace("_", "-")
-        return name  # Let Ollama resolve; it'll error if unknown
+        """Guess an Ollama tag ('family:size') from a HF-style model name.
+
+        E.g. 'Llama-3.1-8B-Instruct' → 'llama3.1:8b', 'Qwen2.5-7B' → 'qwen2.5:7b',
+        'Mixtral-8x7B' → 'mixtral:8x7b'. The dialog is editable, so this is only
+        a starting point.
+        """
+        name = (model_name or "").strip()
+        # Size token: "8B", "1.5B", "8x7B"
+        m = re.search(r"(\d+(?:\.\d+)?x\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*[bB]\b", name)
+        if m:
+            size = m.group(1).lower() + "b"
+            family = re.sub(r"[\s_\-]+", "", name[: m.start()].lower())
+            if family:
+                return f"{family}:{size}"
+        # Fallback: slugified name, let Ollama resolve (it errors if unknown).
+        return re.sub(r"[\s_]+", "-", name.lower())
 
     def _resolve_gguf_repo(
         self, model
@@ -1759,9 +1769,9 @@ class MainWindow(QMainWindow):
         return picked, files
 
     def _lmstudio_models_dir(self) -> Path:
-        """Where LM Studio looks for GGUF files on this OS."""
-        # LM Studio uses ~/.lmstudio/models on all platforms by default
-        return Path.home() / ".lmstudio" / "models"
+        """Where LM Studio looks for GGUF files (honours a custom folder)."""
+        from providers import _lmstudio_models_dir as _dir
+        return _dir()
 
     def _on_download_requested(self, fit: ModelFit):
         """User clicked Download in the detail panel."""
@@ -1906,6 +1916,7 @@ class MainWindow(QMainWindow):
 
         worker = DownloadWorker(kind=DownloadWorker.KIND_OLLAMA, model_name=tag.strip())
         dialog = DownloadDialog(worker, title=f"Pulling {tag}", parent=self)
+        self._download_workers.append(worker)
         worker.start()
         dialog.exec()
         if dialog.success:
@@ -1974,6 +1985,7 @@ class MainWindow(QMainWindow):
             title=f"Downloading {filename} → LM Studio",
             parent=self,
         )
+        self._download_workers.append(worker)
         worker.start()
         dialog.exec()
 
@@ -2024,6 +2036,7 @@ class MainWindow(QMainWindow):
             token=self._config.hf_token,
         )
         dialog = DownloadDialog(worker, title=f"Downloading {filename}", parent=self)
+        self._download_workers.append(worker)
         worker.start()
         dialog.exec()
 
@@ -2037,32 +2050,61 @@ class MainWindow(QMainWindow):
         self._provider_worker.start()
 
     def _on_run_requested(self, fit: ModelFit):
-        """User clicked Run — open chat dialog with available providers."""
-        from runner import available_providers_for_model
+        """User clicked Run — open chat dialog against the engine that has it."""
+        from models import name_matches_installed
+        from runner import installed_model_ids
 
         model = fit.model
-        # Engines where this model is detected as installed…
-        matched = available_providers_for_model(model.name, self._providers)
-        # …plus every other engine that's currently running, so the user can
-        # always pick e.g. LM Studio even when name-matching missed it. Matched
-        # engines are listed first (pre-selected), running ones after.
-        running = [
-            p.name for p in self._providers if getattr(p, "available", False)
-        ]
-        providers = matched + [p for p in running if p not in matched]
 
+        def _has(p) -> bool:
+            return name_matches_installed(model.name, getattr(p, "installed_models", set()) or set())
+
+        # Engines that have the model AND are running → can run right now.
+        matched_running = [p.name for p in self._providers
+                           if getattr(p, "available", False) and _has(p)]
+        # Engines that have the model but whose server is off.
+        have_offline = [p.name for p in self._providers
+                        if not getattr(p, "available", False) and _has(p)]
+        # Other running engines (fallback so the user can still try / pull).
+        other_running = [p.name for p in self._providers
+                         if getattr(p, "available", False) and p.name not in matched_running]
+
+        # The model is downloaded, but only in an engine whose server is off —
+        # guide the user instead of handing them an engine that will 404.
+        if not matched_running and have_offline:
+            eng = have_offline[0]
+            QMessageBox.information(
+                self,
+                "Start the engine",
+                f"'{model.name}' is downloaded in {eng}, but its server isn't running.\n\n"
+                f"Start {eng} (LM Studio: Developer → Start Server), then click Run again.",
+            )
+            return
+
+        providers = matched_running + other_running
         if not providers:
             QMessageBox.information(
                 self,
                 "No running engine",
                 f"To run '{model.name}', start an engine first.\n\n"
                 "Ollama: click Start on the engine bar.\n"
-                "LM Studio: open LM Studio and start its local server "
-                "(Developer → Start Server), then try again.",
+                "LM Studio: open it and start its local server (Developer → Start Server).",
             )
             return
 
-        dialog = ChatDialog(model.name, providers, parent=self)
+        # Resolve the real engine-side model id per provider (avoids 404s from
+        # sending the catalog name). Ollama falls back to a generated tag.
+        ids = installed_model_ids(model.name, self._providers)
+        model_ids: dict[str, str] = {}
+        for pname in providers:
+            if pname in ids:
+                model_ids[pname] = ids[pname]
+            elif pname.lower() == "ollama":
+                model_ids[pname] = self._pick_ollama_candidate(model.name) or model.name
+            else:
+                model_ids[pname] = model.name
+
+        dialog = ChatDialog(model.name, providers, model_ids=model_ids, parent=self)
         dialog.show()
         # Don't exec() — keep it modeless so the user can browse the catalog too
 
@@ -2185,6 +2227,7 @@ class MainWindow(QMainWindow):
             self._provider_start_worker,
             self._provider_stop_worker,
             self._provider_poller,
+            *self._download_workers,
         ]
         for checker in (
             getattr(self, "_update_checker", None),

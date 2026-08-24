@@ -27,12 +27,16 @@ class ChatDialog(QDialog):
         model_name: str,
         available_providers: list[str],
         parent=None,
+        model_ids: dict[str, str] | None = None,
     ):
         super().__init__(parent)
         self.setWindowTitle(f"Chat — {model_name}")
         self.setMinimumSize(720, 520)
 
         self._model_name = model_name
+        # Per-provider real engine model id (e.g. Ollama 'gemma2:2b'); falls
+        # back to the catalog name when unknown.
+        self._model_ids = model_ids or {}
         self._worker: InferenceWorker | None = None
         self._is_running = False
 
@@ -58,7 +62,7 @@ class ChatDialog(QDialog):
 
         # Prompt input
         self._input = QPlainTextEdit()
-        self._input.setPlaceholderText("Type your prompt (Ctrl+Enter to send)…")
+        self._input.setPlaceholderText("Type your prompt (Enter to send · Shift+Enter for newline)…")
         self._input.setFixedHeight(100)
         layout.addWidget(self._input)
 
@@ -91,12 +95,11 @@ class ChatDialog(QDialog):
         from PyQt6.QtCore import QEvent
 
         if obj is self._input and event.type() == QEvent.Type.KeyPress:
-            if (
-                event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
-                and event.modifiers() & Qt.KeyboardModifier.ControlModifier
-            ):
-                self._send()
-                return True
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                # Enter sends; Shift+Enter inserts a newline.
+                if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+                    self._send()
+                    return True
         return super().eventFilter(obj, event)
 
     # -----------------------------------------------------------------------
@@ -121,8 +124,10 @@ class ChatDialog(QDialog):
 
         self._set_running(True)
 
+        # Send the engine's real model id, not the catalog name (avoids 404s).
+        engine_model = self._model_ids.get(provider, self._model_name)
         self._worker = InferenceWorker(
-            model_name=self._model_name,
+            model_name=engine_model,
             provider=provider,
             prompt=prompt,
         )

@@ -6,6 +6,23 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-08-24
+### Fixed
+- Çalıştırınca "HTTP 404": chat artık motorun **gerçek model kimliğini** gönderiyor (Ollama'ya `gemma2:2b` gibi, kataloğ adı değil) ve modeli **gerçekten içeren** motora yönlendiriyor. Model yalnızca kapalı bir motorda (ör. LM Studio sunucusu kapalı) kuruluysa, 404 yerine "o motoru başlat" uyarısı çıkar.
+- Updater artık **SHA256 doğrulanmadan installer çalıştırmıyor** (sidecar yoksa/eşleşmezse iptal).
+- İndirme/pull zaman aşımı 30 sn'den 300 sn'ye çıkarıldı (büyük GGUF indirmeleri kesilmesin).
+- LM Studio indirme klasörü de `settings.json`'daki `downloadsFolder`'ı okuyor (özel klasör).
+
+### Added
+- Chat: **Enter ile gönder** (Shift+Enter yeni satır).
+- PR'larda pytest koşan CI kapısı (`test.yml`); `nameweaver.ico` repoya eklendi.
+
+### Changed
+- Ollama tag üretimi gerçek formata çevrildi (`Llama-3.1-8B-Instruct` → `llama3.1:8b`).
+- İndirme worker'ları artık takip edilip kapanışta durduruluyor.
+- Sürüm her yerde hizalandı (pyproject, file_version_info, Inno); README artık `app.py`'yi gösteriyor.
+- Ölü kod temizliği: `planner.py`, `crash_handler.py`, `logger.py` kaldırıldı — tek log (cfg.setup_logging) + tek crash handler (app.py).
+
 ## [0.1.12] - 2026-08-08
 ### Fixed
 - "İndirdiğim modeller güncelleme sonrası kayboldu": modeller aslında silinmiyordu (LM Studio'nun kendi klasöründe duruyorlar) ama Nameweaver onları yalnızca sunucu açıkken görüyordu. Artık LM Studio modelleri **diskten de taranıyor** (sunucu kapalıyken bile kurulu görünürler). Özel model klasörü, LM Studio'nun `settings.json`'ındaki `downloadsFolder` okunarak destekleniyor — varsayılan ya da özel konum, her PC'de çalışır.

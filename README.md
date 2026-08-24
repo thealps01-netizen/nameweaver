@@ -7,7 +7,7 @@ Right-size LLM models to your hardware — PyQt6 desktop app
 ```bash
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python nameweaver.py
+.venv\Scripts\python app.py
 ```
 
 ## Derleme (Windows .exe + installer)

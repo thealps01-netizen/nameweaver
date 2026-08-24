@@ -24,3 +24,7 @@ logs/
 # Windows
 Thumbs.db
 desktop.ini
+
+# Coverage
+.coverage
+htmlcov/

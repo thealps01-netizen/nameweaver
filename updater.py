@@ -31,10 +31,11 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui     import QFont, QPainter, QColor, QPainterPath
 
-from version import __version__
-from logger  import get_logger
+import logging
 
-_log = get_logger("updater")
+from version import __version__
+
+_log = logging.getLogger(__name__)
 
 # Keeps downloader + progress dialog alive until download finishes (prevents GC)
 _active: list = []
@@ -212,7 +213,9 @@ class InstallerDownloader(QObject):
             self.progress.emit(100)
             _log.info("Download complete: %s", dest)
 
-            # SHA256 integrity check — download .sha256 sidecar if available
+            # SHA256 integrity check is MANDATORY — never run an unverified
+            # installer. If the .sha256 sidecar is missing or doesn't match, we
+            # abort instead of executing the downloaded file.
             sha256_url = self._url + ".sha256"
             try:
                 ctx = ssl.create_default_context()
@@ -222,13 +225,20 @@ class InstallerDownloader(QObject):
                     context=ctx,
                 ) as r:
                     expected_hash = r.read().decode().split()[0].strip().lower()
-                with open(dest, "rb") as _f:
-                    actual_hash = hashlib.sha256(_f.read()).hexdigest()
-                if actual_hash != expected_hash:
-                    raise ValueError(f"SHA256 mismatch: expected {expected_hash}, got {actual_hash}")
-                _log.info("SHA256 verified OK: %s", actual_hash)
-            except urllib.error.URLError:
-                _log.warning("No .sha256 sidecar found — installer integrity not verified")
+            except urllib.error.URLError as exc:
+                _log.error("No .sha256 sidecar — refusing to run unverified installer")
+                self.error.emit(
+                    "Update aborted: could not verify the installer (no checksum found)."
+                )
+                return
+
+            with open(dest, "rb") as _f:
+                actual_hash = hashlib.sha256(_f.read()).hexdigest()
+            if actual_hash != expected_hash:
+                _log.error("SHA256 mismatch: expected %s, got %s", expected_hash, actual_hash)
+                self.error.emit("Update aborted: installer checksum did not match.")
+                return
+            _log.info("SHA256 verified OK: %s", actual_hash)
 
             self.finished.emit(dest)
         except Exception as e:

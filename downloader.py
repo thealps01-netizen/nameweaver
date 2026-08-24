@@ -60,7 +60,7 @@ def pull_ollama(
     emit(0, f"Pulling {model_name}…")
 
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=300) as resp:
             for raw in resp:
                 if should_cancel and should_cancel():
                     emit(0, "Cancelled")
@@ -168,7 +168,7 @@ def download_gguf(
 
     try:
         req = _build_hf_request(url, token)
-        with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=300, context=ctx) as resp:
             total_bytes = int(resp.headers.get("Content-Length", 0))
             downloaded = 0
             chunk_size = 1024 * 512  # 512KB
