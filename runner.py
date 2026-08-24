@@ -227,17 +227,13 @@ def installed_model_ids(model_name: str, provider_statuses: Iterable) -> dict[st
     name 'gemma-2-2b-jpn-it'). Sending the catalog name causes 404s, so callers
     must resolve the real id per engine before running.
     """
-    from models import normalize_model_name
+    from models import name_matches_installed
 
-    key = normalize_model_name(model_name)
     result: dict[str, str] = {}
-    if not key:
-        return result
     for p in provider_statuses:
         installed = getattr(p, "installed_models", set()) or set()
         for inst in installed:
-            ik = normalize_model_name(inst)
-            if ik and (key in ik or ik in key):
+            if name_matches_installed(model_name, [inst]):
                 result[p.name] = inst
                 break
     return result

@@ -6,6 +6,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-08-24
+### Fixed
+- Kurulu-model eşleştirmesindeki yanlış pozitif giderildi: `gemma-2-2b-jpn-it` gibi bir varyant, sende kurulu olan farklı bir modele (`gemma2:2b`) artık yanlışlıkla "yüklü" eşleşmiyor. Eşleşme boyut + kimlik token'larına (aile/sürüm/varyant) bakıyor; sadece jenerik etiketleri (instruct/chat/quant/format) ve yayıncı önekini yok sayıyor.
+- `_pick_ollama_candidate` çökmesi (`NameError: 're' is not defined`) düzeltildi — Ollama'ya indirme/pull artık çökmüyor.
+
 ## [0.1.13] - 2026-08-24
 ### Fixed
 - Çalıştırınca "HTTP 404": chat artık motorun **gerçek model kimliğini** gönderiyor (Ollama'ya `gemma2:2b` gibi, kataloğ adı değil) ve modeli **gerçekten içeren** motora yönlendiriyor. Model yalnızca kapalı bir motorda (ör. LM Studio sunucusu kapalı) kuruluysa, 404 yerine "o motoru başlat" uyarısı çıkar.

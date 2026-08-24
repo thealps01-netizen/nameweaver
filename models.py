@@ -188,22 +188,58 @@ def normalize_model_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", n)
 
 
-def name_matches_installed(catalog_name: str, installed_names) -> bool:
-    """Whether a catalog model appears among an engine's installed model names.
+# Quant / format runs carry no model identity (q4_k_m, q8_0, iq3_xxs, fp16…).
+_QUANT_RE = re.compile(
+    r"\b(i?q\d+(?:[_-]?[a-z0-9]+)*|fp?\d+|bf16|f16|f32|int[48]|gptq|awq|exl2|mlx)\b"
+)
+# Generic tuning/format words that also don't distinguish one model from another.
+_GENERIC_WORDS: frozenset[str] = frozenset({
+    "instruct", "instruction", "chat", "it", "base", "latest", "default",
+    "gguf", "hf", "safetensors", "imatrix", "im", "ggml",
+})
 
-    Uses normalised, bidirectional containment so separator/case/format
-    differences between catalog names and engine names don't cause misses.
+
+def _size_token(name: str) -> str:
+    """Extract the parameter-size token (e.g. '8b', '2b', '8x7b'); '' if none."""
+    m = re.search(r"\b(\d+(?:\.\d+)?x\d+(?:\.\d+)?|\d+(?:\.\d+)?)b\b", name.lower())
+    return (m.group(0)) if m else ""
+
+
+def _core_tokens(name: str) -> tuple[str, frozenset[str]]:
+    """(size, identity-tokens) for a model name, stripped of generic tags.
+
+    'Gemma-2-2B-jpn-it' → ('2b', {'gemma','2','jpn'});
+    'gemma2:2b'         → ('2b', {'gemma','2'}) — so the two do NOT match.
+    'Llama-3.1-8B-Instruct' and 'llama3.1:8b' → same core (instruct is generic).
     """
-    key = normalize_model_name(catalog_name)
-    if not key:
+    # Use the last path segment so a 'publisher/model' id compares on the model.
+    low = name.lower().rsplit("/", 1)[-1]
+    size = _size_token(low)
+    rest = low.replace(size, " ") if size else low
+    rest = _QUANT_RE.sub(" ", rest)  # drop quant/format runs before tokenising
+    toks = re.findall(r"[a-z]+|\d+", rest)
+    return size, frozenset(t for t in toks if t not in _GENERIC_WORDS)
+
+
+def _names_match(a: str, b: str) -> bool:
+    """Whether two model names refer to the same model (size + identity match)."""
+    a_size, a_toks = _core_tokens(a)
+    b_size, b_toks = _core_tokens(b)
+    if not a_toks or not b_toks:
         return False
-    for inst in installed_names:
-        ikey = normalize_model_name(inst)
-        if not ikey:
-            continue
-        if key in ikey or ikey in key:
-            return True
-    return False
+    if a_size and b_size and a_size != b_size:
+        return False
+    return a_toks == b_toks
+
+
+def name_matches_installed(catalog_name: str, installed_names) -> bool:
+    """Whether a catalog model is actually among an engine's installed models.
+
+    Matches on parameter size + identity tokens (family/version/variant),
+    ignoring only generic tags (instruct/chat/quant/format). This avoids false
+    positives like 'gemma2:2b' matching the distinct 'gemma-2-2b-jpn-it'.
+    """
+    return any(_names_match(catalog_name, inst) for inst in installed_names)
 
 
 # ---------------------------------------------------------------------------

@@ -140,13 +140,19 @@ class _FakeProvider:
 
 def test_installed_model_ids_maps_catalog_to_engine_id():
     provs = [
-        _FakeProvider("Ollama", {"gemma2:2b", "llama3.1:8b"}),
+        _FakeProvider("Ollama", {"llama3.1:8b", "gemma2:2b"}),
         _FakeProvider("LM Studio", {"google/gemma-2-2b-jpn-it"}),
     ]
     ids = runner.installed_model_ids("gemma-2-2b-jpn-it", provs)
-    # Real engine ids, not the catalog name (prevents 404 on run).
-    assert ids["Ollama"] == "gemma2:2b"
+    # The distinct jpn-it variant must NOT match Ollama's plain gemma2:2b.
+    assert "Ollama" not in ids
     assert ids["LM Studio"] == "google/gemma-2-2b-jpn-it"
+
+
+def test_installed_model_ids_matches_real_ollama_tag():
+    provs = [_FakeProvider("Ollama", {"llama3.1:8b"})]
+    ids = runner.installed_model_ids("Llama-3.1-8B-Instruct", provs)
+    assert ids["Ollama"] == "llama3.1:8b"
 
 
 def test_installed_model_ids_empty_when_no_match():

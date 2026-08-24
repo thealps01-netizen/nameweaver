@@ -33,6 +33,15 @@ def test_installed_match_rejects_unrelated():
     assert not name_matches_installed("", ["llama3:8b"])
 
 
+def test_installed_match_rejects_distinct_variant():
+    # A different fine-tune of the same size must NOT be treated as installed.
+    assert not name_matches_installed("gemma-2-2b-jpn-it", ["gemma2:2b"])
+    assert name_matches_installed("gemma-2-2b-jpn-it", ["google/gemma-2-2b-jpn-it"])
+    # Vision vs non-vision, and version 3.1 vs 3, stay distinct.
+    assert not name_matches_installed("Qwen2.5-VL-3B", ["qwen2.5:3b"])
+    assert not name_matches_installed("Llama-3.1-8B", ["llama3:8b"])
+
+
 def test_official_provider_allowlist():
     for org in ("meta-llama", "Meta", "Qwen", "alibaba", "deepseek-ai", "google"):
         assert is_official_provider(org), org

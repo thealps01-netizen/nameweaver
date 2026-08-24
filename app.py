@@ -3,6 +3,7 @@
 import ctypes
 import logging
 import platform
+import re
 import sys
 import traceback
 from pathlib import Path
