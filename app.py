@@ -2062,18 +2062,14 @@ class MainWindow(QMainWindow):
         def _has(p) -> bool:
             return name_matches_installed(model.name, getattr(p, "installed_models", set()) or set())
 
-        # Engines that have the model AND are running → can run right now.
+        # Only engines that actually have this model AND are running are
+        # selectable — never offer an engine that would just 404.
         matched_running = [p.name for p in self._providers
                            if getattr(p, "available", False) and _has(p)]
         # Engines that have the model but whose server is off.
         have_offline = [p.name for p in self._providers
                         if not getattr(p, "available", False) and _has(p)]
-        # Other running engines (fallback so the user can still try / pull).
-        other_running = [p.name for p in self._providers
-                         if getattr(p, "available", False) and p.name not in matched_running]
 
-        # The model is downloaded, but only in an engine whose server is off —
-        # guide the user instead of handing them an engine that will 404.
         if not matched_running and have_offline:
             eng = have_offline[0]
             QMessageBox.information(
@@ -2084,16 +2080,16 @@ class MainWindow(QMainWindow):
             )
             return
 
-        providers = matched_running + other_running
-        if not providers:
+        if not matched_running:
             QMessageBox.information(
                 self,
-                "No running engine",
-                f"To run '{model.name}', start an engine first.\n\n"
-                "Ollama: click Start on the engine bar.\n"
-                "LM Studio: open it and start its local server (Developer → Start Server).",
+                "Not installed",
+                f"'{model.name}' isn't installed in any running engine.\n\n"
+                "Download it first (Download button), then Run.",
             )
             return
+
+        providers = matched_running
 
         # Resolve the real engine-side model id per provider (avoids 404s from
         # sending the catalog name). Ollama falls back to a generated tag.

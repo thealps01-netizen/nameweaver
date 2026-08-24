@@ -559,7 +559,10 @@ def _remove_lmstudio(model_id: str) -> tuple[bool, str]:
             target = gguf.parent.resolve()
             break
     if target is None:
-        return False, f"{model_id} not found on disk."
+        return False, (
+            f"'{model_id}' isn't a file in LM Studio's models folder — LM Studio "
+            "is managing it. Remove it from LM Studio → My Models (trash icon)."
+        )
 
     # Safety: only ever delete a folder strictly inside the models directory.
     if target == base_resolved or base_resolved not in target.parents:

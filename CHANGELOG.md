@@ -6,6 +6,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-08-24
+### Changed
+- Chat penceresinde artık **yalnızca modeli gerçekten içeren, çalışan motorlar** seçilebiliyor. Modeli içermeyen bir motoru seçip 404 alma durumu kalktı; model çalışan hiçbir motorda yoksa net "önce indir" / "motoru başlat" uyarısı çıkar.
+- LM Studio model kaldırma: dosya LM Studio'nun model klasöründe bulunamazsa (LM Studio kendi yönettiği modeller) artık kafa karıştırıcı "not found on disk" yerine, kullanıcıyı **LM Studio → My Models**'tan silmeye yönlendiren net bir mesaj gösteriliyor. (Ollama kaldırma ve klasördeki gerçek GGUF dosyalarını silme aynen çalışıyor.)
+
 ## [0.1.15] - 2026-08-24
 ### Fixed
 - Parametre sayısı ayrıştırma hatası: "135M" gibi milyon (ve "83K" bin) değerleri artık milyar sayılmıyor. SmolLM-135M artık "135.0 B / Huge / 42 GB" yerine doğru şekilde küçük görünüyor.
