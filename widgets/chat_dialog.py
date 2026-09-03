@@ -11,12 +11,14 @@ import time
 
 import qtawesome as qta
 from PyQt6.QtCore import Qt, QSize, QTimer
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
     QFileDialog,
     QFrame,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -137,16 +139,45 @@ class _Bubble(QFrame):
         )
         self.setObjectName("bubble")
 
-        self._lay = QVBoxLayout(self)
-        self._lay.setContentsMargins(12, 8, 12, 8)
-        self._lay.setSpacing(6)
+        # Subtle drop shadow for depth.
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(18)
+        shadow.setOffset(0, 3)
+        shadow.setColor(QColor(0, 0, 0, 70))
+        self.setGraphicsEffect(shadow)
 
+        self._lay = QVBoxLayout(self)
+        self._lay.setContentsMargins(14, 11, 14, 11)
+        self._lay.setSpacing(7)
+
+        # Header: avatar + role name + timestamp
+        head = QHBoxLayout()
+        head.setSpacing(7)
+        avatar = QLabel()
+        icon = "mdi6.account" if is_user else "mdi6.robot-happy-outline"
+        avatar.setPixmap(qta.icon(icon, color=(fg if is_user else c.good)).pixmap(QSize(18, 18)))
+        avatar.setStyleSheet("background:transparent; border:none;")
         who = QLabel("You" if is_user else "Assistant")
         who.setStyleSheet(
             f"color:{fg if is_user else c.good}; font-weight:700; font-size:11px;"
             " background:transparent; border:none;"
         )
-        self._lay.addWidget(who)
+        ts = QLabel(time.strftime("%H:%M"))
+        ts.setStyleSheet(
+            f"color:{fg if is_user else c.fg_muted}; font-size:10px;"
+            " background:transparent; border:none;"
+        )
+        if is_user:
+            head.addStretch(1)
+            head.addWidget(ts)
+            head.addWidget(who)
+            head.addWidget(avatar)
+        else:
+            head.addWidget(avatar)
+            head.addWidget(who)
+            head.addStretch(1)
+            head.addWidget(ts)
+        self._lay.addLayout(head)
 
         self._content_holder = QVBoxLayout()
         self._content_holder.setSpacing(6)
@@ -186,6 +217,17 @@ class _Bubble(QFrame):
             w = item.widget()
             if w:
                 w.deleteLater()
+
+    def set_thinking(self, frame: int):
+        """Animated 'typing' dots shown until the first token arrives."""
+        self._clear_content()
+        dots = "●" * (1 + frame % 3)
+        lbl = QLabel(dots)
+        lbl.setStyleSheet(
+            f"color:{self._theme.good}; font-size:16px; letter-spacing:3px;"
+            " background:transparent; border:none;"
+        )
+        self._content_holder.addWidget(lbl)
 
     def set_plain(self, text: str, cursor: bool = False):
         """Live streaming text (plain, no markdown)."""
@@ -269,6 +311,8 @@ class ChatDialog(QDialog):
         self._stream_bubble: _Bubble | None = None
         self._stream_started = 0.0
         self._cursor_on = True
+        self._got_first_token = False
+        self._think_frame = 0
 
         c = self._theme
         root = QVBoxLayout(self)
@@ -302,8 +346,8 @@ class ChatDialog(QDialog):
         )
         self._msg_container = QWidget()
         self._msg_layout = QVBoxLayout(self._msg_container)
-        self._msg_layout.setContentsMargins(12, 12, 12, 12)
-        self._msg_layout.setSpacing(10)
+        self._msg_layout.setContentsMargins(14, 14, 14, 14)
+        self._msg_layout.setSpacing(16)
         self._msg_layout.addStretch(1)  # keep messages pushed up
         self._scroll.setWidget(self._msg_container)
         root.addWidget(self._scroll, 1)
@@ -326,8 +370,14 @@ class ChatDialog(QDialog):
         # Input
         self._input = QPlainTextEdit()
         self._input.setPlaceholderText("Type your prompt (Enter to send · Shift+Enter for newline)…")
-        self._input.setFixedHeight(80)
+        self._input.setFixedHeight(56)
         self._input.installEventFilter(self)
+        self._input.setStyleSheet(
+            f"QPlainTextEdit {{ background:{c.bg_alt}; color:{c.fg};"
+            f" border:1px solid {c.border}; border-radius:12px; padding:8px 12px; }}"
+            f" QPlainTextEdit:focus {{ border-color:{c.accent}; }}"
+        )
+        self._input.textChanged.connect(self._adjust_input_height)
         root.addWidget(self._input)
 
         # Action row
@@ -335,12 +385,12 @@ class ChatDialog(QDialog):
         self._attach_btn = QPushButton(" Image")
         self._attach_btn.setIcon(qta.icon("mdi6.image-outline", color=c.fg_muted))
         self._attach_btn.setToolTip(
-            "Attach an image" if supports_vision
-            else "This model can't see images (not a vision model)"
+            "Attach an image (or drag & drop). Best with vision models."
         )
-        self._attach_btn.setEnabled(supports_vision)
         self._attach_btn.clicked.connect(self._attach_image)
         row.addWidget(self._attach_btn)
+        self._vision_warned = False
+        self.setAcceptDrops(True)  # drag & drop images anywhere on the dialog
 
         self._clear_btn = QPushButton("Clear")
         self._clear_btn.clicked.connect(self._clear_chat)
@@ -376,12 +426,19 @@ class ChatDialog(QDialog):
                     return True
         return super().eventFilter(obj, event)
 
+    def _adjust_input_height(self):
+        doc_h = self._input.document().size().height()
+        target = int(doc_h) + 20
+        self._input.setFixedHeight(max(56, min(target, 170)))
+
     def _attach_image(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Attach image", "", "Images (*.png *.jpg *.jpeg *.webp *.gif *.bmp)"
         )
-        if not path:
-            return
+        if path:
+            self._add_image_from_path(path)
+
+    def _add_image_from_path(self, path: str):
         try:
             with open(path, "rb") as f:
                 data = f.read()
@@ -391,10 +448,31 @@ class ChatDialog(QDialog):
         if len(data) > _MAX_IMAGE_BYTES:
             QMessageBox.warning(self, "Image", "Image is too large (max 12 MB).")
             return
+        if not self._supports_vision and not self._vision_warned:
+            self._vision_warned = True
+            QMessageBox.information(
+                self, "Image",
+                "This model isn't detected as a vision model, so it may ignore "
+                "the image. Attaching anyway — use a vision model (e.g. "
+                "qwen2.5vl, llava, gemma3-vision) to actually read images.",
+            )
         self._pending_images.append(base64.b64encode(data).decode("ascii"))
         n = len(self._pending_images)
         self._img_bar.setText(f"🖼 {n} image(s) attached — sent with your next message")
         self._img_bar.setVisible(True)
+
+    _IMG_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            p = url.toLocalFile()
+            if p and p.lower().endswith(self._IMG_EXTS):
+                self._add_image_from_path(p)
+        event.acceptProposedAction()
 
     # ------------------------------------------------------------ transcript
     def _at_bottom(self) -> bool:
@@ -446,8 +524,11 @@ class ChatDialog(QDialog):
         self._set_running(True)
         self._stream_buf = []
         self._stream_started = time.monotonic()
+        self._got_first_token = False
+        self._think_frame = 0
         self._stream_bubble = self._add_bubble("assistant")
-        self._stream_bubble.set_plain("", cursor=True)
+        self._stream_bubble.set_thinking(0)  # "typing…" until first token
+        self._blink.setInterval(350)
         self._blink.start()
         self._scroll_to_end()
 
@@ -468,12 +549,19 @@ class ChatDialog(QDialog):
         self._worker.start()
 
     def _tick_cursor(self):
+        if self._stream_bubble is None:
+            return
+        if not self._got_first_token:
+            # Animated "thinking" dots before any text arrives.
+            self._think_frame += 1
+            self._stream_bubble.set_thinking(self._think_frame)
+            return
         self._cursor_on = not self._cursor_on
-        if self._stream_bubble is not None:
-            self._stream_bubble.set_plain("".join(self._stream_buf), cursor=self._cursor_on)
+        self._stream_bubble.set_plain("".join(self._stream_buf), cursor=self._cursor_on)
 
     def _on_token(self, token: str):
         at_bottom = self._at_bottom()
+        self._got_first_token = True
         self._stream_buf.append(token)
         if self._stream_bubble is not None:
             self._stream_bubble.set_plain("".join(self._stream_buf), cursor=True)

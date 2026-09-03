@@ -6,6 +6,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.23] - 2026-09-04
+### Added
+- Chat cilası: mesaj **avatarları** (sen/asistan yuvarlak ikon), balonlara **hafif gölge** + ferah boşluk, **zaman damgası**, ve **"düşünüyor" animasyonu** (ilk token gelene kadar yanıp sönen noktalar).
+- **Resim sürükle-bırak**: görseli pencereye bırakarak ekle. Image butonu artık **her modelde açık**; vision değilse tek seferlik uyarı verir ama denemene izin verir.
+- Input kutusu **yuvarlak** ve içerikle **otomatik büyüyor** (max yükseklikte durur).
+
 ## [0.1.22] - 2026-09-04
 ### Added
 - Chat baştan tasarlandı — **balon arayüzü**: kullanıcı sağda (vurgu rengi), asistan solda; yuvarlak köşe, avatar/etiket.
