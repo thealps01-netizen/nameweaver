@@ -2103,7 +2103,14 @@ class MainWindow(QMainWindow):
             else:
                 model_ids[pname] = model.name
 
-        dialog = ChatDialog(model.name, providers, model_ids=model_ids, parent=self)
+        supports_vision = "vision" in [c.lower() for c in (model.capabilities or [])]
+        dialog = ChatDialog(
+            model.name, providers,
+            model_ids=model_ids,
+            supports_vision=supports_vision,
+            theme_name=self._config.theme,
+            parent=self,
+        )
         dialog.show()
         # Don't exec() — keep it modeless so the user can browse the catalog too
 

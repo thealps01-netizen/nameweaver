@@ -158,3 +158,19 @@ def test_installed_model_ids_matches_real_ollama_tag():
 def test_installed_model_ids_empty_when_no_match():
     provs = [_FakeProvider("Ollama", {"mistral:7b"})]
     assert runner.installed_model_ids("gemma-2-2b", provs) == {}
+
+
+def test_chat_message_conversion_ollama_vs_openai():
+    msgs = [{"role": "user", "content": "hi", "images": ["B64"]}]
+    o = runner._to_ollama_messages(msgs)
+    assert o[0]["content"] == "hi" and o[0]["images"] == ["B64"]  # raw base64
+    oa = runner._to_openai_messages(msgs)
+    assert oa[0]["content"][0] == {"type": "text", "text": "hi"}
+    assert oa[0]["content"][1]["type"] == "image_url"
+    assert oa[0]["content"][1]["image_url"]["url"].startswith("data:image")
+
+
+def test_chat_message_conversion_text_only():
+    msgs = [{"role": "user", "content": "hello"}]
+    assert runner._to_openai_messages(msgs)[0]["content"] == "hello"
+    assert "images" not in runner._to_ollama_messages(msgs)[0]

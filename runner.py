@@ -179,6 +179,92 @@ def _build_messages(prompt: str, system: str = "") -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Multi-turn chat (with conversation history + optional images)
+# ---------------------------------------------------------------------------
+# Neutral message shape used by the UI:
+#   {"role": "user"|"assistant"|"system", "content": str, "images": [b64, ...]}
+# where images are base64 strings WITHOUT a data: prefix. Converted per engine.
+
+
+def _to_ollama_messages(messages: list[dict]) -> list[dict]:
+    out = []
+    for m in messages:
+        msg = {"role": m.get("role", "user"), "content": m.get("content", "")}
+        if m.get("images"):
+            msg["images"] = list(m["images"])  # Ollama wants raw base64 strings
+        out.append(msg)
+    return out
+
+
+def _to_openai_messages(messages: list[dict]) -> list[dict]:
+    out = []
+    for m in messages:
+        imgs = m.get("images") or []
+        if imgs:
+            content = [{"type": "text", "text": m.get("content", "")}]
+            for b64 in imgs:
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+                })
+            out.append({"role": m.get("role", "user"), "content": content})
+        else:
+            out.append({"role": m.get("role", "user"), "content": m.get("content", "")})
+    return out
+
+
+def chat_ollama(
+    model: str, messages: list[dict], should_cancel: CancelFn | None = None
+) -> Generator[str, None, None]:
+    """Stream a multi-turn chat from Ollama's /api/chat endpoint."""
+    payload = {
+        "model": model,
+        "messages": _to_ollama_messages(messages),
+        "stream": True,
+    }
+    try:
+        for raw in _post_stream(OLLAMA_CHAT, payload, should_cancel=should_cancel):
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            token = (event.get("message") or {}).get("content", "")
+            if token:
+                yield token
+            if event.get("done"):
+                return
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        logger.error("Ollama chat failed: %s", exc)
+        yield f"\n[error: {exc}]"
+
+
+def chat_model(
+    model: str,
+    provider: str,
+    messages: list[dict],
+    *,
+    should_cancel: CancelFn | None = None,
+) -> Generator[str, None, None]:
+    """Route a multi-turn chat (with history/images) to the right engine."""
+    p = (provider or "").strip().lower()
+    if p == "ollama":
+        yield from chat_ollama(model, messages, should_cancel=should_cancel)
+    elif p in ("lm studio", "lmstudio"):
+        yield from _run_openai_compatible(
+            LM_STUDIO_CHAT, model, _to_openai_messages(messages), should_cancel
+        )
+    elif p in ("docker", "docker model runner", "dmr"):
+        yield from _run_openai_compatible(
+            DMR_CHAT, model, _to_openai_messages(messages), should_cancel
+        )
+    else:
+        yield f"[error: provider '{provider}' not supported for chat]"
+
+
+# ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
 

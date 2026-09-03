@@ -197,15 +197,13 @@ class InferenceWorker(QThread):
         self,
         model_name: str,
         provider: str,
-        prompt: str,
-        system: str = "",
+        messages: list[dict],
         parent=None,
     ):
         super().__init__(parent)
         self._model_name = model_name
         self._provider = provider
-        self._prompt = prompt
-        self._system = system
+        self._messages = messages
         self._cancel = False
 
     def cancel(self) -> None:
@@ -216,14 +214,13 @@ class InferenceWorker(QThread):
 
     def run(self) -> None:
         try:
-            from runner import run_model
+            from runner import chat_model
 
             buffer: list[str] = []
-            for token in run_model(
+            for token in chat_model(
                 self._model_name,
                 self._provider,
-                self._prompt,
-                system=self._system,
+                self._messages,
                 should_cancel=self._should_cancel,
             ):
                 if self._cancel:
