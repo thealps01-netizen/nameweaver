@@ -6,6 +6,15 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.22] - 2026-09-04
+### Added
+- Chat baştan tasarlandı — **balon arayüzü**: kullanıcı sağda (vurgu rengi), asistan solda; yuvarlak köşe, avatar/etiket.
+- **Kod blokları**: monospace + kutu + **kod-başına Copy** butonu; pygments varsa syntax highlighting, yoksa düz (graceful).
+- **Zengin Markdown**: tablo, sıralı/sırasız liste, başlık, alıntı, link, kalın/italik/inline-kod (hepsi güvenli/escape'li).
+- **Streaming göstergesi**: yazarken yanıp sönen imleç; token akışında verimli güncelleme (bitince markdown'a dönüşür).
+- **Mesaj-başına aksiyonlar** (asistan): Copy, Regenerate, 👍/👎.
+- **Canlı istatistik**: token/sn ve toplam kelime; **boş-durum** karşılaması; sadece en alttaysan otomatik-scroll.
+
 ## [0.1.21] - 2026-08-24
 ### Fixed
 - Chat gönderince çökme (`QTextCursor has no attribute MovePosition`) düzeltildi — PyQt6 enum adı `MoveOperation` olmalıydı. Streaming artık sorunsuz.
