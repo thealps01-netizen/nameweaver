@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.21] - 2026-08-24
+### Fixed
+- Chat gönderince çökme (`QTextCursor has no attribute MovePosition`) düzeltildi — PyQt6 enum adı `MoveOperation` olmalıydı. Streaming artık sorunsuz.
+
 ## [0.1.20] - 2026-08-24
 ### Added
 - Zengin chat: **konuşma geçmişi** (multi-turn — model önceki mesajları hatırlar), **Markdown/kod bloğu render**, vision modellerine (qwen2.5vl/llava/gemma3-vision) **resim yükleme** (normal modellerde buton kapalı), ve kontroller: **system prompt**, **Stop**, **Regenerate**, **Copy last**, **Clear**. Enter gönderir, Shift+Enter yeni satır.

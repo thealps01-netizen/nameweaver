@@ -259,7 +259,7 @@ class ChatDialog(QDialog):
 
         # Live streaming block (plain text; re-rendered as markdown on finish).
         cur = self._output.textCursor()
-        cur.movePosition(QTextCursor.MovePosition.End)
+        cur.movePosition(QTextCursor.MoveOperation.End)
         cur.insertHtml(f'<div><b style="color:{self._theme.good};">Assistant</b><br></div>')
         self._output.setTextCursor(cur)
         self._stream_buf = []
@@ -285,7 +285,7 @@ class ChatDialog(QDialog):
     def _on_token(self, token: str):
         self._stream_buf.append(token)
         cur = self._output.textCursor()
-        cur.movePosition(QTextCursor.MovePosition.End)
+        cur.movePosition(QTextCursor.MoveOperation.End)
         cur.insertText(token)
         self._output.setTextCursor(cur)
         self._scroll_to_end()
