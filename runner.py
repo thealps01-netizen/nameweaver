@@ -143,6 +143,13 @@ def _run_openai_compatible(
                 yield token
             if choices[0].get("finish_reason"):
                 return
+    except urllib.error.HTTPError as exc:
+        if exc.code == 400 and any(isinstance(m.get("content"), list) for m in messages):
+            yield ("\n[This model can't read images. Use a vision model such as "
+                   "qwen2.5vl, llava or gemma3-vision.]")
+        else:
+            logger.error("OpenAI-compat HTTP error (%s): %s", url, exc)
+            yield f"\n[error: {exc}]"
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         logger.error("OpenAI-compat inference failed (%s): %s", url, exc)
         yield f"\n[error: {exc}]"
@@ -236,6 +243,13 @@ def chat_ollama(
                 yield token
             if event.get("done"):
                 return
+    except urllib.error.HTTPError as exc:
+        if exc.code == 400 and any(m.get("images") for m in messages):
+            yield ("\n[This model can't read images. Use a vision model such as "
+                   "qwen2.5vl, llava or gemma3-vision.]")
+        else:
+            logger.error("Ollama chat HTTP error: %s", exc)
+            yield f"\n[error: {exc}]"
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         logger.error("Ollama chat failed: %s", exc)
         yield f"\n[error: {exc}]"

@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.25] - 2026-09-04
+### Changed
+- Vision olmayan bir modele resim gönderince gelen ham "HTTP 400 Bad Request" yerine artık net mesaj: "Bu model resim okuyamaz — qwen2.5vl / llava / gemma3-vision gibi bir vision model kullan." (Resimsiz 400'ler eskisi gibi ham gösterilir.)
+
 ## [0.1.24] - 2026-09-04
 ### Fixed
 - Otomatik güncelleme "kapanıyor ama kurmuyor": installer artık `/VERYSILENT` yerine **`/SILENT` (görünür ilerleme) + `/FORCECLOSEAPPLICATIONS`** ile çalıştırılıyor — çalışan uygulama zorla kapatılıp kurulum tamamlanıyor ve hata olursa görünür oluyor. (Not: bu düzeltmenin etkili olması için v0.1.24 bir kez **elle** kurulmalı; sonraki güncellemeler otomatik çalışır.)

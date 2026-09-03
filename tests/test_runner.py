@@ -174,3 +174,15 @@ def test_chat_message_conversion_text_only():
     msgs = [{"role": "user", "content": "hello"}]
     assert runner._to_openai_messages(msgs)[0]["content"] == "hello"
     assert "images" not in runner._to_ollama_messages(msgs)[0]
+
+
+def test_image_on_non_vision_model_gives_friendly_400():
+    import urllib.error
+    err = urllib.error.HTTPError("http://x", 400, "Bad Request", {}, None)
+    with patch("runner.urllib.request.urlopen", side_effect=err):
+        out = "".join(runner.chat_ollama("m", [{"role": "user", "content": "x", "images": ["B64"]}]))
+    assert "vision model" in out
+    # No image → raw error passes through.
+    with patch("runner.urllib.request.urlopen", side_effect=err):
+        out2 = "".join(runner.chat_ollama("m", [{"role": "user", "content": "x"}]))
+    assert "400" in out2 and "vision" not in out2
