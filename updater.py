@@ -711,7 +711,11 @@ def prompt_and_install(tag: str, download_url: str, notes: str = "", parent=None
         sei.cbSize       = ctypes.sizeof(_SEI)
         sei.lpVerb       = "runas"
         sei.lpFile       = path
-        sei.lpParameters = "/VERYSILENT /NORESTART"
+        # /SILENT shows a progress window (failures are visible, unlike
+        # /VERYSILENT). /FORCECLOSEAPPLICATIONS makes the installer forcibly
+        # close the still-open app via Restart Manager so the files unlock and
+        # the install actually completes.
+        sei.lpParameters = "/SILENT /NORESTART /FORCECLOSEAPPLICATIONS"
         sei.lpDirectory  = os.path.dirname(path)
         sei.nShow        = 1  # SW_SHOWNORMAL (so UAC dialog is visible)
 

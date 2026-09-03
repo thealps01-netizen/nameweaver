@@ -6,6 +6,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.24] - 2026-09-04
+### Fixed
+- Otomatik güncelleme "kapanıyor ama kurmuyor": installer artık `/VERYSILENT` yerine **`/SILENT` (görünür ilerleme) + `/FORCECLOSEAPPLICATIONS`** ile çalıştırılıyor — çalışan uygulama zorla kapatılıp kurulum tamamlanıyor ve hata olursa görünür oluyor. (Not: bu düzeltmenin etkili olması için v0.1.24 bir kez **elle** kurulmalı; sonraki güncellemeler otomatik çalışır.)
+
 ## [0.1.23] - 2026-09-04
 ### Added
 - Chat cilası: mesaj **avatarları** (sen/asistan yuvarlak ikon), balonlara **hafif gölge** + ferah boşluk, **zaman damgası**, ve **"düşünüyor" animasyonu** (ilk token gelene kadar yanıp sönen noktalar).
