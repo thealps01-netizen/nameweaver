@@ -12,6 +12,8 @@ import re
 
 _FENCE = re.compile(r"```([a-zA-Z0-9_+-]*)\n?(.*?)```", re.DOTALL)
 _TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$")
+_UL_RE = re.compile(r"^\s*[-*+]\s+")
+_OL_RE = re.compile(r"^\s*\d+\.\s+")
 
 
 def split_segments(text: str) -> list[tuple[str, str, str]]:
@@ -119,19 +121,21 @@ def md_to_html(text: str) -> str:
             continue
 
         # Unordered list
-        if re.match(r"^\s*[-*+]\s+", line):
+        if _UL_RE.match(line):
             items = []
-            while i < n and re.match(r"^\s*[-*+]\s+", lines[i]):
-                items.append(f"<li>{_inline(re.sub(r'^\s*[-*+]\s+', '', lines[i]))}</li>")
+            while i < n and _UL_RE.match(lines[i]):
+                item = _inline(_UL_RE.sub("", lines[i]))
+                items.append(f"<li>{item}</li>")
                 i += 1
             out.append("<ul>" + "".join(items) + "</ul>")
             continue
 
         # Ordered list
-        if re.match(r"^\s*\d+\.\s+", line):
+        if _OL_RE.match(line):
             items = []
-            while i < n and re.match(r"^\s*\d+\.\s+", lines[i]):
-                items.append(f"<li>{_inline(re.sub(r'^\s*\d+\.\s+', '', lines[i]))}</li>")
+            while i < n and _OL_RE.match(lines[i]):
+                item = _inline(_OL_RE.sub("", lines[i]))
+                items.append(f"<li>{item}</li>")
                 i += 1
             out.append("<ol>" + "".join(items) + "</ol>")
             continue
