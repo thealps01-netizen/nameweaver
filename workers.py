@@ -361,3 +361,49 @@ class HFUpdateWorker(QThread):
         except Exception as exc:
             logger.error("HF update failed: %s", exc, exc_info=True)
             self.error.emit(str(exc))
+
+
+class HFSearchWorker(QThread):
+    """Live-search HuggingFace by name and merge the hits into the catalog.
+
+    Unlike :class:`HFUpdateWorker` (popular/trending only), this looks up a
+    specific query so niche or brand-new models can be found. New hits are
+    appended to the on-disk cache (existing entries kept), then the full merged
+    catalog is emitted along with how many hits were newly added.
+    """
+
+    progress = pyqtSignal(int, str)  # percent, message
+    finished = pyqtSignal(list, int)  # merged catalog, count of newly-added
+    error = pyqtSignal(str)
+
+    def __init__(self, query: str, token: str = "", limit: int = 40, parent=None):
+        super().__init__(parent)
+        self._query = query
+        self._token = token
+        self._limit = limit
+
+    def run(self) -> None:
+        try:
+            from hf_api import save_cache, search_catalog
+            from models import load_cached_models, merge_models
+
+            hits = search_catalog(
+                self._query,
+                token=self._token,
+                limit=self._limit,
+                on_progress=lambda pct, msg: self.progress.emit(pct, msg),
+            )
+
+            existing = load_cached_models()
+            existing_keys = {m.name.lower() for m in existing}
+            new_count = sum(1 for m in hits if m.name.lower() not in existing_keys)
+
+            if hits:
+                # merge_models dedups by name; hits win over stale cache copies.
+                save_cache(merge_models(existing, hits))
+
+            merged = load_all_models()
+            self.finished.emit(merged, new_count)
+        except Exception as exc:
+            logger.error("HF search failed: %s", exc, exc_info=True)
+            self.error.emit(str(exc))

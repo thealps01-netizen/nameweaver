@@ -80,6 +80,27 @@ def extract_param_count(name: str, tags: Iterable[str] | None = None) -> str:
     return ""
 
 
+def _param_str_from_safetensors(safetensors: object) -> str:
+    """Derive a '7B'/'350M'-style string from an HF ``safetensors`` record.
+
+    The single-model API returns ``{"total": <weight_count>, ...}``. We turn
+    that raw count into the same human string the name parser produces, so a
+    repo like ``DeepSeek-V4.1-Flash-Base`` (no size in its name) can still be
+    sized and scored.
+    """
+    if not isinstance(safetensors, dict):
+        return ""
+    total = safetensors.get("total")
+    if not isinstance(total, (int, float)) or total <= 0:
+        return ""
+    billions = total / 1e9
+    if billions >= 1:
+        # One decimal, trimmed: 6.7B not 6.70B, 7B not 7.0B.
+        return f"{round(billions, 1):g}B"
+    millions = total / 1e6
+    return f"{round(millions):g}M"
+
+
 def infer_use_case(name: str, tags: Iterable[str] | None = None) -> str:
     """Guess Nameweaver use_case enum value from name + HF tags."""
     n = name.lower()
@@ -201,14 +222,23 @@ class HuggingFaceAPI:
 
     # ---- Low-level endpoints ----
 
-    def search_models(self, query: str, limit: int = 50) -> list[dict]:
+    def search_models(
+        self, query: str, limit: int = 50, pipeline: str | None = "text-generation"
+    ) -> list[dict]:
+        """Search HF models by free text.
+
+        ``pipeline`` filters by task; pass ``None`` to search across all tasks
+        (base models often carry no ``text-generation`` tag, so a task filter
+        would hide them from an explicit name search).
+        """
         params = {
             "search": query,
-            "pipeline_tag": "text-generation",
             "sort": "downloads",
             "direction": "-1",
             "limit": str(limit),
         }
+        if pipeline:
+            params["pipeline_tag"] = pipeline
         url = f"{HF_API}/models?{urllib.parse.urlencode(params)}"
         data = _http_json(url, self.token, self.timeout)
         return data if isinstance(data, list) else []
@@ -241,10 +271,28 @@ class HuggingFaceAPI:
         data = _http_json(url, self.token, self.timeout)
         return data if isinstance(data, dict) else None
 
+    def fetch_model_info(self, repo_id: str) -> dict | None:
+        """Fetch the single-model API record for ``repo_id``.
+
+        Unlike the list endpoints this includes ``safetensors`` (with a
+        ``total`` parameter count) and richer ``tags`` — used so search hits
+        can be sized even when the repo name carries no ``7B``-style token.
+        """
+        url = f"{HF_API}/models/{urllib.parse.quote(repo_id)}"
+        data = _http_json(url, self.token, self.timeout)
+        return data if isinstance(data, dict) else None
+
     # ---- Conversion ----
 
     def convert_to_llm_model(self, entry: dict, config: dict | None = None) -> LlmModel | None:
-        """Convert an HF API entry to a Nameweaver LlmModel."""
+        """Convert an HF API entry to a Nameweaver LlmModel.
+
+        Parameter count comes from the repo name/tags when possible; otherwise
+        it falls back to the ``safetensors.total`` weight count when the entry
+        carries one (populated by ``fetch_model_info``). Only if both are
+        missing is the entry skipped — a model with no derivable size cannot be
+        scored against hardware.
+        """
         repo_id = entry.get("modelId") or entry.get("id") or ""
         if not repo_id or "/" not in repo_id:
             return None
@@ -255,7 +303,9 @@ class HuggingFaceAPI:
         tags = entry.get("tags") or []
         param_str = extract_param_count(display, tags)
         if not param_str:
-            # Too uncertain — skip
+            param_str = _param_str_from_safetensors(entry.get("safetensors"))
+        if not param_str:
+            # No size in the name, tags, or weight metadata — cannot score it.
             return None
 
         # Compute params_b for memory estimate
@@ -446,4 +496,58 @@ def update_catalog(
             progress(55 + int(40 * i / total), f"Converted {i}/{total}")
 
     progress(100, f"Done: {len(converted)} models")
+    return converted
+
+
+def search_catalog(
+    query: str,
+    token: str = "",
+    limit: int = 40,
+    on_progress: Callable[[int, str], None] | None = None,
+) -> list[LlmModel]:
+    """Live-search HuggingFace by name and return converted models.
+
+    Unlike :func:`update_catalog` (which only sweeps the popular/trending
+    lists), this hits the search endpoint across all tasks so a specific,
+    niche, or brand-new model can be found by name. Each hit is enriched via
+    ``fetch_model_info`` so ``safetensors``/``config`` fields are available for
+    sizing. Does not touch the cache — the caller decides how to merge.
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    api = HuggingFaceAPI(token=token)
+
+    def progress(pct: int, msg: str) -> None:
+        logger.info("HF search: %d%% — %s", pct, msg)
+        if on_progress:
+            on_progress(pct, msg)
+
+    progress(10, f"Searching HuggingFace for “{q}”…")
+    hits = api.search_models(q, limit=limit, pipeline=None)
+
+    seen: set[str] = set()
+    converted: list[LlmModel] = []
+    total = max(1, len(hits))
+    for i, hit in enumerate(hits):
+        rid = (hit.get("modelId") or hit.get("id") or "")
+        key = rid.lower()
+        if not rid or key in seen:
+            continue
+        seen.add(key)
+
+        # Enrich with the single-model record for safetensors + config.
+        info = api.fetch_model_info(rid) or {}
+        entry = {**hit, **info}
+        config = info.get("config") if isinstance(info.get("config"), dict) else None
+        if config is None:
+            config = api.fetch_model_config(rid)
+
+        model = api.convert_to_llm_model(entry, config)
+        if model:
+            converted.append(model)
+        progress(10 + int(85 * (i + 1) / total), f"Checked {i + 1}/{total}")
+
+    progress(100, f"Found {len(converted)} usable models")
     return converted

@@ -31,6 +31,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -70,6 +71,7 @@ from widgets.system_bar import SystemBar
 from workers import (
     DownloadWorker,
     HardwareWorker,
+    HFSearchWorker,
     HFUpdateWorker,
     ProviderWorker,
     ScoringWorker,
@@ -316,6 +318,7 @@ class MainWindow(QMainWindow):
         self._scoring_worker: ScoringWorker | None = None
         self._download_workers: list = []  # kept alive; stopped on close
         self._hf_worker: HFUpdateWorker | None = None
+        self._hf_search_worker: HFSearchWorker | None = None
 
         self._setup_ui()
         self._apply_theme(self._config.theme)
@@ -649,6 +652,37 @@ class MainWindow(QMainWindow):
         filter_inner = QVBoxLayout(filter_section)
         filter_inner.setContentsMargins(0, 0, 0, 0)
         filter_inner.setSpacing(0)
+
+        # HuggingFace live-search row — distinct from the filter search below.
+        # The filter box only narrows models already loaded; this one queries
+        # HuggingFace by name and adds any hits to the catalog, so niche or
+        # brand-new models (not in the popular/trending sweep) can be found.
+        hf_search_row = QHBoxLayout()
+        hf_search_row.setContentsMargins(0, 0, 0, 6)
+        hf_search_row.setSpacing(6)
+
+        hf_search_lbl = QLabel("HuggingFace'te ara:")
+        hf_search_lbl.setToolTip(
+            "Katalogda olmayan bir modeli adıyla HuggingFace'te arayıp "
+            "listeye ekler. Aşağıdaki arama kutusu ise yalnızca yüklü "
+            "modelleri filtreler."
+        )
+        hf_search_row.addWidget(hf_search_lbl)
+
+        self._hf_search_input = QLineEdit()
+        self._hf_search_input.setPlaceholderText(
+            "Model adı, ör. DeepSeek-V4.1-Flash-Base — Enter ile HuggingFace'te ara"
+        )
+        self._hf_search_input.setClearButtonEnabled(True)
+        self._hf_search_input.returnPressed.connect(self._start_hf_search)
+        hf_search_row.addWidget(self._hf_search_input, stretch=1)
+
+        self._hf_search_btn = QPushButton("HF'de Ara")
+        self._hf_search_btn.setToolTip("Bu adı HuggingFace'te ara ve bulunanları kataloğa ekle")
+        self._hf_search_btn.clicked.connect(self._start_hf_search)
+        hf_search_row.addWidget(self._hf_search_btn)
+
+        filter_inner.addLayout(hf_search_row)
 
         self._filter_bar = FilterBar()
         self._filter_bar.filters_changed.connect(self._apply_filters)
@@ -1596,6 +1630,70 @@ class MainWindow(QMainWindow):
         logger.info(msg)
         self._stop_refresh_spin()
 
+    def _start_hf_search(self):
+        """Look up the typed name on HuggingFace and add hits to the catalog."""
+        query = self._hf_search_input.text().strip()
+        if not query:
+            return
+        if self._hf_search_worker and self._hf_search_worker.isRunning():
+            return
+
+        self._hf_search_btn.setEnabled(False)
+        self._hf_search_input.setEnabled(False)
+        self._status_bar.showMessage(f"HuggingFace'te aranıyor: {query}…")
+        self._start_refresh_spin()
+
+        self._hf_search_worker = HFSearchWorker(
+            query=query,
+            token=self._config.hf_token,
+            limit=40,
+        )
+        self._hf_search_worker.progress.connect(self._on_hf_progress)
+        self._hf_search_worker.finished.connect(self._on_hf_search_finished)
+        self._hf_search_worker.error.connect(self._on_hf_search_error)
+        self._hf_search_worker.start()
+
+    def _on_hf_search_finished(self, models: list, new_count: int):
+        self._hf_search_btn.setEnabled(True)
+        self._hf_search_input.setEnabled(True)
+
+        self._models = models
+
+        # Refresh filter dropdowns so any new provider/quant/license shows up.
+        self._filter_bar.populate_providers(sorted(set(m.provider for m in self._models)))
+        self._filter_bar.populate_quants(
+            sorted(set(m.quantization for m in self._models if m.quantization))
+        )
+        self._filter_bar.populate_licenses(
+            sorted(set(m.license for m in self._models if m.license))
+        )
+
+        if self._specs:
+            self._start_scoring(self._specs)
+        else:
+            self._stop_refresh_spin()
+
+        if new_count > 0:
+            msg = f"HuggingFace araması: {new_count} yeni model eklendi"
+        elif self._models:
+            msg = "HuggingFace araması: eşleşen modeller zaten katalogda"
+        else:
+            msg = "HuggingFace araması: sonuç bulunamadı"
+        self._status_bar.showMessage(msg, 5000)
+        logger.info(msg)
+
+    def _on_hf_search_error(self, err: str):
+        self._hf_search_btn.setEnabled(True)
+        self._hf_search_input.setEnabled(True)
+        self._status_bar.showMessage("HuggingFace araması başarısız", 5000)
+        self._stop_refresh_spin()
+        QMessageBox.warning(
+            self,
+            "HuggingFace araması başarısız",
+            f"Arama tamamlanamadı:\n\n{err}\n\n"
+            "İnternet bağlantını ve varsa HF_TOKEN ayarını kontrol et.",
+        )
+
     def _on_hf_error(self, err: str):
         self._update_btn.setEnabled(True)
         self._update_btn.setToolTip("Fetch models from HuggingFace")
@@ -2262,6 +2360,7 @@ class MainWindow(QMainWindow):
             self._provider_worker,
             self._scoring_worker,
             self._hf_worker,
+            self._hf_search_worker,
             self._provider_start_worker,
             self._provider_stop_worker,
             self._provider_poller,
