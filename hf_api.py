@@ -499,6 +499,45 @@ def update_catalog(
     return converted
 
 
+# Suffixes that describe a packaging/variant rather than the model itself.
+# Dropping them lets a query like "…-Flash-Base" fall back to the real repo
+# when the exact variant does not exist.
+_TRIM_SUFFIXES = (
+    "base", "instruct", "chat", "it", "gguf", "awq", "gptq", "fp8", "fp4",
+    "nvfp4", "mlx", "abliterated", "hf", "vision", "preview",
+)
+
+
+def _query_variants(query: str) -> list[str]:
+    """Yield the query, then progressively trimmed fallbacks.
+
+    HuggingFace's search is fairly literal, so a slightly-off name (an extra
+    ``-Base`` that doesn't exist, a version typo tail) returns nothing. We try
+    the verbatim query first, then strip trailing variant-suffix words, then
+    drop the last ``-``/``.``/space segment once, deduplicating in order.
+    """
+    variants: list[str] = []
+
+    def add(v: str) -> None:
+        v = v.strip(" -._")
+        if v and v not in variants:
+            variants.append(v)
+
+    add(query)
+
+    # Strip trailing variant-suffix tokens (repeatedly): "X-Flash-Base" → "X-Flash".
+    parts = re.split(r"[\s\-_]+", query)
+    while len(parts) > 1 and parts[-1].lower() in _TRIM_SUFFIXES:
+        parts = parts[:-1]
+        add(" ".join(parts))
+
+    # Last resort: drop one more trailing segment.
+    if len(parts) > 1:
+        add(" ".join(parts[:-1]))
+
+    return variants
+
+
 def search_catalog(
     query: str,
     token: str = "",
@@ -525,7 +564,14 @@ def search_catalog(
             on_progress(pct, msg)
 
     progress(10, f"Searching HuggingFace for “{q}”…")
-    hits = api.search_models(q, limit=limit, pipeline=None)
+    hits: list[dict] = []
+    for candidate in _query_variants(q):
+        hits = api.search_models(candidate, limit=limit, pipeline=None)
+        if hits:
+            if candidate != q:
+                logger.info("HF search: “%s” had no hits, matched “%s” instead", q, candidate)
+                progress(15, f"“{q}” bulunamadı — “{candidate}” deneniyor…")
+            break
 
     seen: set[str] = set()
     converted: list[LlmModel] = []
