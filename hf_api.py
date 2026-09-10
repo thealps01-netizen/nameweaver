@@ -508,6 +508,27 @@ _TRIM_SUFFIXES = (
 )
 
 
+def _parse_repo_id(query: str) -> str:
+    """Extract an ``owner/name`` repo id from a URL or pasted id, else "".
+
+    Accepts full HuggingFace URLs (``https://huggingface.co/owner/name`` with
+    optional ``/tree/...`` etc.) and bare ``owner/name`` strings. Returns "" for
+    free-text searches so the caller falls back to the search endpoint.
+    """
+    s = (query or "").strip()
+    if not s:
+        return ""
+    m = re.search(r"huggingface\.co/([^/\s?#]+/[^/\s?#]+)", s)
+    if m:
+        return m.group(1).strip("/")
+    # Bare "owner/name": exactly one slash, no scheme, no spaces.
+    if "://" not in s and " " not in s and s.count("/") == 1:
+        owner, name = s.split("/")
+        if owner and name:
+            return s
+    return ""
+
+
 def _query_variants(query: str) -> list[str]:
     """Yield the query, then progressively trimmed fallbacks.
 
@@ -563,15 +584,31 @@ def search_catalog(
         if on_progress:
             on_progress(pct, msg)
 
-    progress(10, f"Searching HuggingFace for “{q}”…")
     hits: list[dict] = []
-    for candidate in _query_variants(q):
-        hits = api.search_models(candidate, limit=limit, pipeline=None)
-        if hits:
-            if candidate != q:
-                logger.info("HF search: “%s” had no hits, matched “%s” instead", q, candidate)
-                progress(15, f"“{q}” bulunamadı — “{candidate}” deneniyor…")
-            break
+
+    # If the user pasted a URL or an owner/name id, fetch that repo directly —
+    # the search endpoint often returns nothing for a fully-qualified id.
+    repo_id = _parse_repo_id(q)
+    if repo_id:
+        progress(10, f"Fetching {repo_id}…")
+        info = api.fetch_model_info(repo_id)
+        if info:
+            info.setdefault("modelId", repo_id)
+            hits = [info]
+        else:
+            logger.info("HF search: direct fetch of %s failed, falling back to text search", repo_id)
+        # Fall back to searching by the name segment if the direct fetch missed.
+        q = repo_id.split("/")[-1]
+
+    if not hits:
+        progress(10, f"Searching HuggingFace for “{q}”…")
+        for candidate in _query_variants(q):
+            hits = api.search_models(candidate, limit=limit, pipeline=None)
+            if hits:
+                if candidate != q:
+                    logger.info("HF search: “%s” had no hits, matched “%s” instead", q, candidate)
+                    progress(15, f"“{q}” bulunamadı — “{candidate}” deneniyor…")
+                break
 
     seen: set[str] = set()
     converted: list[LlmModel] = []

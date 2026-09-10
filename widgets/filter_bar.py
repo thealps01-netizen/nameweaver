@@ -197,6 +197,26 @@ class FilterBar(QWidget):
         self._pref_slider.setValue(int(round(clamped * 100)))
         self._pref_slider.blockSignals(False)
 
+    def show_search(self, term: str) -> None:
+        """Filter the table to ``term`` and clear hardware-based filters.
+
+        Called after an explicit HuggingFace search adds models, so the new
+        entries are visible immediately even if a PC-Load / Min-TPS / Fit
+        filter would otherwise hide a large model. Emits ``filters_changed``
+        once at the end.
+        """
+        self._search.blockSignals(True)
+        self._search.setText(term)
+        self._search.blockSignals(False)
+        for combo in (self._comfort_combo, self._min_tps_combo, self._fit_combo):
+            combo.blockSignals(True)
+            combo.setCurrentIndex(0)
+            combo.blockSignals(False)
+        self._installed_checkbox.blockSignals(True)
+        self._installed_checkbox.setChecked(False)
+        self._installed_checkbox.blockSignals(False)
+        self.filters_changed.emit()
+
     def reset_filters(self):
         """Reset all filters to default values."""
         self._search.clear()

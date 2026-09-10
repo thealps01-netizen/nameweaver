@@ -1673,6 +1673,17 @@ class MainWindow(QMainWindow):
         else:
             self._stop_refresh_spin()
 
+        # Surface the hits: filter the table to the searched name and drop any
+        # hardware filters that might hide a large model, so the user sees what
+        # was just added instead of it sinking to the bottom of the full list.
+        from hf_api import _parse_repo_id
+
+        raw = self._hf_search_input.text().strip()
+        repo_id = _parse_repo_id(raw)
+        term = (repo_id.split("/")[-1] if repo_id else raw)
+        if term:
+            self._filter_bar.show_search(term)
+
         if new_count > 0:
             msg = f"HuggingFace araması: {new_count} yeni model eklendi"
         elif self._models:
