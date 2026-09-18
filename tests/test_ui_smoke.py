@@ -24,7 +24,7 @@ import dialogs as dialogs_module
 import updater as updater_module
 import workers as workers_module
 from cfg import AppConfig
-from models import load_all_models
+from models import LlmModel, load_all_models, ollama_tag_candidates
 from providers import ProviderState, ProviderStatus
 from scoring import ModelFit
 from widgets.chat_dialog import ChatDialog
@@ -70,24 +70,14 @@ def test_detail_panel_renders_and_clears_a_fit(qtbot, sample_specs, small_model)
 
     panel.show_model(fit)
     assert f"{fit.score:.1f}" in panel._score_label.text()
-    # Runnable format, but the model is not installed anywhere yet: Download is
-    # offered, Run is not (widgets/detail_panel.py:259-273).
+    # Download is the panel's only action now: running happens on My Models,
+    # where the engine's own id is known, so no Run button exists here at all.
     assert panel._download_btn.isEnabled() is True
-    assert panel._run_btn.isEnabled() is False
-    assert panel._run_btn.toolTip() == "Install the model first via Download"
-
-    # Detection fills the provider list alongside the flag, and the panel reads
-    # the list (widgets/detail_panel.py).
-    fit.installed = True
-    fit.installed_providers = ["Ollama"]
-    fit.engine_ids = {"Ollama": "testmodel3b:latest"}
-    panel.show_model(fit)
-    assert panel._run_btn.isEnabled() is True
-    assert panel._run_btn.toolTip() == "Run in My Models (Ollama: testmodel3b:latest)"
+    assert not hasattr(panel, "_run_btn")
+    assert not hasattr(panel, "run_requested")
 
     panel.show_model(None)
     assert panel._score_label.text() == ""
-    assert panel._run_btn.isEnabled() is False
 
 
 def test_detail_panel_disables_download_for_engine_incompatible_formats(
@@ -101,7 +91,6 @@ def test_detail_panel_disables_download_for_engine_incompatible_formats(
     panel.show_model(_fit(small_model, sample_specs))
 
     assert panel._download_btn.isEnabled() is False
-    assert panel._run_btn.isEnabled() is False
     assert "GGUF" in panel._download_btn.toolTip()
 
 
@@ -137,7 +126,11 @@ def test_filter_bar_round_trips_its_state(qtbot):
     bar.reset_filters()
     assert bar.search_text == ""
     assert bar.provider_filter == ""
-    assert bar.installed_only is False
+    # The catalog no longer claims to know what is installed: the filter and the
+    # field it persisted are gone, and only the engines' own list (My Models)
+    # says what is on disk.
+    assert not hasattr(bar, "_installed_checkbox")
+    assert "installed_only" not in bar.get_filters()
 
 
 # ── System bar / status bar / engine pill ─────────────────────────────────────
@@ -375,66 +368,18 @@ def test_main_window_boots_and_scores_the_catalog(qtbot, monkeypatch, sample_spe
     assert window._status_bar is not None
 
 
-def test_detail_panel_keeps_run_off_for_an_embedding_model(qtbot, sample_specs, small_model):
-    """Installed, runnable format — and still nothing to chat with."""
+def test_detail_panel_says_an_embedding_model_cannot_chat(qtbot, sample_specs, small_model):
+    """An embedder is not a chat model, and the panel says so where it matters."""
     small_model.use_case = "embedding"
     fit = _fit(small_model, sample_specs)
-    fit.installed = True
-    fit.installed_providers = ["Ollama"]
     panel = DetailPanel()
     qtbot.addWidget(panel)
 
     panel.show_model(fit)
 
-    assert panel._run_btn.isEnabled() is False
-    assert "embedding" in panel._run_btn.toolTip().lower()
+    assert "No chat" in panel._details_label.text()
     # analyze() puts the reason where the panel shows notes.
     assert "embedding" in panel._notes_label.text().lower()
-
-
-def test_detail_panel_runs_a_probable_engine_match_and_names_the_id(
-    qtbot, sample_specs, small_model
-):
-    """Names that differ by qualifiers still give a runnable row."""
-    fit = _fit(small_model, sample_specs)
-    fit.likely_providers = ["Ollama"]
-    fit.engine_ids = {"Ollama": "testmodel3b:latest"}
-    panel = DetailPanel()
-    qtbot.addWidget(panel)
-
-    panel.show_model(fit)
-
-    assert panel._run_btn.isEnabled() is True
-    assert "testmodel3b:latest" in panel._run_btn.toolTip()
-    assert "Probably" in panel._details_label.text()
-    assert "testmodel3b:latest" in panel._details_label.text()
-
-
-def test_installed_filter_counts_a_probable_match(qtbot, sample_specs, small_model):
-    from models import LlmModel
-    from widgets.model_table import ModelFilterProxy, ModelTableModel
-
-    exact = _fit(small_model, sample_specs)
-    exact.installed = True
-    exact.installed_providers = ["Ollama"]
-
-    probable = _fit(LlmModel(name="Probable-7B", use_case="general", format="gguf"), sample_specs)
-    probable.likely_providers = ["Ollama"]
-
-    foreign = _fit(LlmModel(name="Foreign-7B", use_case="general", format="gguf"), sample_specs)
-
-    source = ModelTableModel()
-    source.set_data([exact, probable, foreign])
-    proxy = ModelFilterProxy()
-    proxy.setSourceModel(source)
-
-    proxy.set_filters(installed_only=True)
-
-    kept = [
-        source.get_fit(proxy.mapToSource(proxy.index(row, 0)).row()).model.name
-        for row in range(proxy.rowCount())
-    ]
-    assert sorted(kept) == ["Probable-7B", "TestModel-3B"]
 
 
 class TestMyModelsPageWiring:
@@ -450,18 +395,16 @@ class TestMyModelsPageWiring:
         qtbot.addWidget(window)
         return window
 
-    def test_the_catalog_run_button_hands_over_to_my_models(
-        self, qtbot, monkeypatch, sample_specs, small_model
-    ):
+    def test_the_catalog_window_offers_no_place_to_run_a_model(self, qtbot, monkeypatch):
+        """Run lives on My Models only — the catalog cannot start a chat."""
         window = self._window(qtbot, monkeypatch)
         assert window._pages.count() == 2
         assert window._pages.currentIndex() == 0
 
-        monkeypatch.setattr(window._my_models, "select_model", lambda _name: True)
-        window._open_in_my_models(_fit(small_model, sample_specs))
-
-        assert window._pages.currentIndex() == 1
-        assert window._filter_section.isVisible() is False  # filters describe the catalog
+        assert not hasattr(window._detail_panel, "run_requested")
+        assert not hasattr(window._table_view, "run_requested")
+        assert not hasattr(window, "_on_run_requested")
+        assert not hasattr(window, "_open_in_my_models")
 
     def test_switching_back_reveals_the_filters_again(self, qtbot, monkeypatch):
         window = self._window(qtbot, monkeypatch)
@@ -576,3 +519,39 @@ def test_an_open_popup_shows_the_busy_state_of_its_engine(qtbot):
 
     texts = [lbl.text() for lbl in pill._popup_rows["Ollama"].findChildren(QLabel)]
     assert "Starting…" in texts
+
+
+def test_a_format_no_engine_can_run_never_claims_an_engine_model(
+    qtbot, monkeypatch, sample_specs, small_model
+):
+    """AWQ/GPTQ entries are not what a GGUF engine holds, so the app keeps them
+    out of the installed-matching entirely — the AWQ row here shares every name
+    token with the installed tag."""
+    from providers import ProviderState, ProviderStatus
+
+    monkeypatch.setattr(app_module, "UpdateChecker", _StubUpdateChecker)
+    monkeypatch.setattr(app_module, "load_config", lambda: AppConfig(theme="dark"))
+    monkeypatch.setattr(app_module, "save_config", lambda _cfg: None)
+    monkeypatch.setattr(app_module.MainWindow, "_start_detection", lambda self: None)
+    monkeypatch.setattr(app_module.MainWindow, "_apply_dwm_dark_title_bar", lambda self: None)
+    window = app_module.MainWindow()
+    qtbot.addWidget(window)
+
+    gguf = _fit(small_model, sample_specs)
+    awq_entry = _fit(
+        LlmModel(name=small_model.name, provider="Somebody", format="awq"), sample_specs
+    )
+    window._fits = [gguf, awq_entry]
+    status = ProviderStatus(
+        name="Ollama",
+        available=True,
+        state=ProviderState.READY,
+        # the id Ollama would actually hold for this catalog name
+        installed_models={ollama_tag_candidates(small_model.name)[0]},
+    )
+
+    window._on_providers_detected([status])
+
+    assert gguf.installed_providers == ["Ollama"]  # the names do line up
+    assert awq_entry.installed_providers == []
+    assert awq_entry.likely_providers == []

@@ -19,7 +19,6 @@ from PyQt6.QtWidgets import (
 
 from models import (
     SUPPORTED_FORMATS,
-    is_chat_model,
     is_engine_compatible,
     is_reupload,
     is_trusted_source,
@@ -406,7 +405,6 @@ class ModelFilterProxy(QSortFilterProxyModel):
         self._quant = ""
         self._license = ""
         self._capability = ""
-        self._installed_only = False
         self._min_tps = 0.0
         self.setDynamicSortFilter(True)
 
@@ -420,7 +418,6 @@ class ModelFilterProxy(QSortFilterProxyModel):
         quant: str = "",
         license: str = "",
         capability: str = "",
-        installed_only: bool = False,
         min_tps: float = 0.0,
     ):
         self._search_text = search.lower()
@@ -431,7 +428,6 @@ class ModelFilterProxy(QSortFilterProxyModel):
         self._quant = quant
         self._license = license.lower()
         self._capability = capability.lower()
-        self._installed_only = installed_only
         self._min_tps = max(0.0, float(min_tps))
         self.invalidateFilter()
 
@@ -484,15 +480,6 @@ class ModelFilterProxy(QSortFilterProxyModel):
             if self._capability not in caps_lower:
                 return False
 
-        # Installed-only toggle: an exact install or a probable one both mean the
-        # model is on disk, so both belong in "my models".
-        if self._installed_only:
-            on_disk = bool(
-                getattr(fit, "installed", False) or (getattr(fit, "likely_providers", []) or [])
-            )
-            if not on_disk:
-                return False
-
         # Min TPS filter — hide too-slow models
         if self._min_tps > 0 and fit.estimated_tps < self._min_tps:
             return False
@@ -516,7 +503,6 @@ class ModelTableView(QTableView):
 
     model_selected = pyqtSignal(object)  # ModelFit or None
     download_requested = pyqtSignal(object)  # ModelFit
-    run_requested = pyqtSignal(object)  # ModelFit
     remove_requested = pyqtSignal(object)  # ModelFit
 
     def __init__(self, parent=None):
@@ -594,23 +580,6 @@ class ModelTableView(QTableView):
         download_action.setEnabled(compatible)  # AWQ/GPTQ can't run locally
         download_action.triggered.connect(lambda: self.download_requested.emit(fit))
         menu.addAction(download_action)
-
-        run_action = QAction("Run (Chat)…", self)
-        on_disk = bool(
-            (getattr(fit, "installed_providers", []) or [])
-            or (getattr(fit, "likely_providers", []) or [])
-        )
-        can_run = (
-            compatible
-            and on_disk
-            and fit.fit_level != FitLevel.TOO_TIGHT
-            and is_chat_model(fit.model)
-        )
-        if not is_chat_model(fit.model):
-            run_action.setToolTip("This is an embedding model — it cannot hold a chat")
-        run_action.setEnabled(can_run)
-        run_action.triggered.connect(lambda: self.run_requested.emit(fit))
-        menu.addAction(run_action)
 
         installed_in = getattr(fit, "installed_providers", []) or []
         remove_label = (

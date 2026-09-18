@@ -112,7 +112,8 @@ Uygulamanın kalbi. Sorumlulukları:
 
 #### `scoring.py` (~25 KB) — Fit & Skor Motoru
 Her modeli donanıma göre analiz eden çekirdek. **En kritik iş mantığı burada.**
-- **`ModelFit`** (dataclass): `model, fit_level, run_mode, memory_required_gb, memory_available_gb, utilization_pct, score, score_components, estimated_tps, best_quant, notes[], installed, installed_providers[]`.
+- **`ModelFit`** (dataclass): `model, fit_level, run_mode, memory_required_gb, memory_available_gb, utilization_pct, score, score_components, estimated_tps, best_quant, notes[], installed, installed_providers[], likely_providers[], engine_ids{}` (`engine_ids` motor id'lerini taşır; muhtemel eşleşmeler yalnız My Models'ta kullanılır).
+- **`rank_models`** yalnız TOO_TIGHT sona atar + seçili sütuna göre sıralar; **kurulu olmak sıralamayı etkilemez** (katalog bir alışveriş listesidir, "neye sahibim" My Models'ta).
   - `analyze(model, specs, ...)` — Ana giriş; bir modeli tam analiz eder.
 - **`FitLevel`** (Enum): TOO_TIGHT → ... → PERFECT (rank + `short_hint`).
 - **`RunMode`** (Enum): CPU_ONLY / GPU / offload vb. — `_determine_run_mode`.
@@ -149,7 +150,7 @@ Model çalıştırma ve streaming sohbet.
 
 #### `downloader.py` (~9 KB) — Model İndirme
 - `pull_ollama(...)` — Ollama pull, ilerleme callback'i (`emit`), 300 sn timeout (v0.1.13).
-- `download_gguf(...)` — HuggingFace'ten GGUF dosyası indirme (`_build_hf_request` token desteği).
+- `download_gguf(...)` — HuggingFace'ten GGUF dosyası indirme (`_build_hf_request` token desteği). `expected_sha256` verilirse akış sırasında hash hesaplanır ve **uyuşmazsa dosya silinir** (`list_gguf_files` HF'nin `lfs.oid` değerini `sha256` olarak taşır, `sha256_for_file` ile seçilir).
 - `list_gguf_files(repo_id)` — Repodaki GGUF varyantlarını listeler (quant seçimi için).
 
 #### `hf_api.py` (~16 KB) — HuggingFace Katalog Güncelleme
@@ -188,7 +189,7 @@ UI'yı dondurmadan ağır işleri çalıştırır; sonuçları sinyalle döner:
 | `ScoringWorker` | `analyze_all` katalog skorlama |
 | `ModelLoadWorker` | katalog yükleme |
 | `InferenceWorker` | streaming chat (cancel destekli) |
-| `DownloadWorker` | model indirme (cancel + ilerleme) |
+| `DownloadWorker` | model indirme (cancel + ilerleme + `expected_sha256`) |
 | `InstalledModelsWorker` | motorların kurulu model listesi (HTTP + disk, UI thread'i bloklamadan) |
 | `HFUpdateWorker` | HF katalog güncelleme |
 
@@ -196,12 +197,12 @@ UI'yı dondurmadan ağır işleri çalıştırır; sonuçları sinyalle döner:
 | Dosya | Sınıf(lar) | Görev |
 |---|---|---|
 | `model_table.py` | `ModelTableModel`, `ModelFilterProxy`, `ModelTableView` | Ana model tablosu (Qt Model/View); filtre-proxy ile sıralama+süzme, sağ-tık menüsü (indir/çalıştır/sil) |
-| `detail_panel.py` | `DetailPanel`, `ScoreBar` | Seçili model detayları + Match/Fit skor çubukları |
+| `detail_panel.py` | `DetailPanel`, `ScoreBar` | Seçili model detayları + Match/Fit skor çubukları; aksiyonu **Download** (Run bilinçli olarak yok — çalıştırma My Models'ta) |
 | `comparison.py` | `ComparisonDialog` | Modelleri yan yana karşılaştırma |
 | `chat_dialog.py` | `ChatDialog`, `_Bubble`, `_CodeBlock`, `_highlight_code` | Balon arayüzlü sohbet; avatar, zaman damgası, "düşünüyor" animasyonu, kod-başına Copy, pygments highlight, resim sürükle-bırak |
 | `download_dialog.py` | `DownloadDialog`, **`DownloadSourceDialog`**, `GgufPickerDialog`, `GgufMirrorPickerDialog` | `DownloadSourceDialog` indirme kararını tek ekranda toplar (kaynak + Ollama tag + güven onayı); diğerleri ilerleme ve GGUF varyant/ayna seçimi (`_detect_quant`) |
 | `engine_status.py` | `EngineStatusPill`, `_ProviderRow` | Motor durumu "pill"i (`_overall_state`, `_pick_primary`); popup satırları motor adına bağlı ve **yerinde** güncellenir |
-| `filter_bar.py` | `FilterBar` | Üst filtre çubuğu (use case, boyut, PC Load, kurulu, arama) |
+| `filter_bar.py` | `FilterBar` | Üst filtre çubuğu (use case, boyut, PC Load, arama, min TPS) — katalogda "kurulu" filtresi yok |
 | `hw_sim.py` | `HardwareSimPanel` | Donanım simülasyonu (RAM/VRAM/çekirdek override) |
 | `markdown_render.py` | `md_to_html`, `split_segments`, `_inline`, `_table_html` | Güvenli Markdown→HTML (tablo/liste/kod, escape'li) |
 | `status_bar.py` | `AppStatusBar` | Alt durum çubuğu |
@@ -230,12 +231,12 @@ Gömülü model kataloğu. Her giriş `LlmModel` alanlarıyla birebir eşleşir 
 
 ---
 
-### 3.5 Test (`tests/` — 17 test dosyası, 335 test)
+### 3.5 Test (`tests/` — 17 test dosyası, 341 test, ~3.520 satır)
 `pytest` + `pytest-qt`. Kapsam tabanı **%58** (ölçülen %60; `tests/` ve `tools/` raporun dışında).
 
 **Saf çekirdek (PyQt'siz):** `test_hw.py`, `test_models.py`, `test_model_classification.py`, `test_scoring.py` (en büyük — 427 satır), `test_providers.py`, `test_provider_control.py`, `test_runner.py`, `test_downloader.py`, `test_hf_api.py`, `test_engine_status.py`, `test_markdown_render.py`, `test_themes.py`, `test_version.py`.
 
-**UI smoke (`test_ui_smoke.py`, 25 test):** PyQt katmanını offscreen platformda ( `conftest.py` → `QT_QPA_PLATFORM=offscreen`) kurar. Kapsananlar: ana pencerenin açılışı ve birincil akış (specs → skorlama worker'ı → Score sütununa göre sıralı tablo), `DetailPanel` aksiyon kuralları (GGUF'ta Download açık · Run yalnızca kuruluyken açık · AWQ/GPTQ'da ikisi de kapalı), her widget ve diyaloğun kurulması (Qt API'si yeniden adlandırıldığında ilk burada kırılır), `InstallerDownloader`'ın sidecar yokken ya da hash uyuşmazken installer'ı **çalıştırmayı reddetmesi**, f-string'lerde açılmamış `{{`/`}}` kaçışı taraması, **Catalog ↔ My Models** sayfa geçişi (`QStackedWidget`, filtre çubuğu yalnız katalogda) ve motor popup satırlarının kendi motorundan güncellenmesi. Updater testleri `file://` URL kullanır — ağ gerekmez.
+**UI smoke (`test_ui_smoke.py`, 24 test):** PyQt katmanını offscreen platformda ( `conftest.py` → `QT_QPA_PLATFORM=offscreen`) kurar. Kapsananlar: ana pencerenin açılışı ve birincil akış (specs → skorlama worker'ı → Score sütununa göre sıralı tablo), `DetailPanel` aksiyon kuralları (GGUF'ta Download açık · Run yalnızca kuruluyken açık · AWQ/GPTQ'da ikisi de kapalı), her widget ve diyaloğun kurulması (Qt API'si yeniden adlandırıldığında ilk burada kırılır), `InstallerDownloader`'ın sidecar yokken ya da hash uyuşmazken installer'ı **çalıştırmayı reddetmesi**, f-string'lerde açılmamış `{{`/`}}` kaçışı taraması, **Catalog ↔ My Models** sayfa geçişi (`QStackedWidget`, filtre çubuğu yalnız katalogda) ve motor popup satırlarının kendi motorundan güncellenmesi. Updater testleri `file://` URL kullanır — ağ gerekmez.
 
 **My Models (`test_my_models.py`, 12 test):** motor listelerinin ayrıştırılması (`/api/tags` alanları, LM Studio disk taraması, `capabilities: ["embedding"]`) + sayfanın satır kuralları (embedder'da Run kapalı, katalogda olmayan model yine çalıştırılabilir, boş durum, motor kapalıysa Start).
 

@@ -329,20 +329,27 @@ def available_providers_for_model(
     return result
 
 
-def installed_model_ids(model_name: str, provider_statuses: Iterable) -> dict[str, str]:
+def installed_model_ids(
+    model_name: str, provider_statuses: Iterable, *, strict: bool = False
+) -> dict[str, str]:
     """Map provider name -> the actual installed model id matching this model.
 
     Engines expect their own model id (e.g. Ollama 'gemma2:2b', not the catalog
     name 'gemma-2-2b-jpn-it'). Sending the catalog name causes 404s, so callers
     must resolve the real id per engine before running.
-    """
-    from models import name_matches_installed
 
+    ``strict`` demands the same tuning words and belongs on any path that acts on
+    the result destructively (removal): a name that merely fits must not decide
+    which model's files get deleted.
+    """
+    from models import name_matches_installed, name_matches_installed_strictly
+
+    matches = name_matches_installed_strictly if strict else name_matches_installed
     result: dict[str, str] = {}
     for p in provider_statuses:
         installed: set[str] = getattr(p, "installed_models", set()) or set()
         for inst in installed:
-            if name_matches_installed(model_name, [inst]):
+            if matches(model_name, [inst]):
                 result[p.name] = inst
                 break
     return result

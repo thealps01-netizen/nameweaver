@@ -247,10 +247,20 @@ _GENERIC_WORDS: frozenset[str] = frozenset(
 )
 
 
+# The subset of the generic words that changes which file a name points at. Kept
+# separate because "gguf"/"latest" are pure noise while "instruct" is a variant.
+_VARIANT_WORDS: frozenset[str] = frozenset({"instruct", "instruction", "chat", "it", "base"})
+
+
 def _size_token(name: str) -> str:
     """Extract the parameter-size token (e.g. '8b', '2b', '8x7b'); '' if none."""
     m = re.search(r"\b(\d+(?:\.\d+)?x\d+(?:\.\d+)?|\d+(?:\.\d+)?)b\b", name.lower())
     return (m.group(0)) if m else ""
+
+
+def _tokens(name: str) -> list[str]:
+    """Word tokens of a model name, split on separators and case-folded."""
+    return [tok for tok in re.split(r"[^a-z0-9.]+", name.lower()) if tok]
 
 
 def _core_tokens(name: str) -> tuple[str, frozenset[str]]:
@@ -269,15 +279,51 @@ def _core_tokens(name: str) -> tuple[str, frozenset[str]]:
     return size, frozenset(t for t in toks if t not in _GENERIC_WORDS)
 
 
+def _variant_words(name: str) -> frozenset[str]:
+    """The tuning words in a name that change *which file* it points at."""
+    return frozenset(tok for tok in _tokens(name) if tok in _VARIANT_WORDS)
+
+
+def _variants_contradict(a: str, b: str) -> bool:
+    """Whether two names' tuning words rule each other out.
+
+    Ollama's library treats a bare tag as the instruction-tuned file
+    ('llama3.1:8b' is the instruct model), so an explicit 'Instruct' against a
+    bare id is *not* a contradiction. A base model against an instruct one is —
+    and so is any two different tuning words.
+    """
+    a_words, b_words = _variant_words(a), _variant_words(b)
+    if not a_words or not b_words or a_words == b_words:
+        return False
+    return "base" in a_words or "base" in b_words
+
+
 def _names_match(a: str, b: str) -> bool:
-    """Whether two model names refer to the same model (size + identity match)."""
+    """Whether two model names refer to the same model (size + identity match).
+
+    Qualifier words must not contradict each other, so one installed file cannot
+    answer for a base model and an instruct model at once.
+    """
     a_size, a_toks = _core_tokens(a)
     b_size, b_toks = _core_tokens(b)
     if not a_toks or not b_toks:
         return False
     if a_size and b_size and a_size != b_size:
         return False
+    if _variants_contradict(a, b):
+        return False
     return a_toks == b_toks
+
+
+def _names_match_strictly(a: str, b: str) -> bool:
+    """Same model *and* the same tuning words — the rule to delete by.
+
+    Deleting files is irreversible, so a name that merely fits (an 'Instruct'
+    entry against a bare tag) is not enough to pick a target.
+    """
+    if not _names_match(a, b):
+        return False
+    return _variant_words(a) == _variant_words(b)
 
 
 def name_matches_installed(catalog_name: str, installed_names) -> bool:
@@ -307,6 +353,8 @@ def _names_match_likely(a: str, b: str) -> bool:
         return False
     if a_size and b_size and a_size != b_size:
         return False
+    if _variants_contradict(a, b):
+        return False
     return a_toks <= b_toks or b_toks <= a_toks
 
 
@@ -315,42 +363,66 @@ def name_matches_likely(catalog_name: str, installed_names) -> bool:
     return any(_names_match_likely(catalog_name, inst) for inst in installed_names)
 
 
+def name_matches_installed_strictly(catalog_name: str, installed_names) -> bool:
+    """Whether a catalog model is *certainly* among an engine's models.
+
+    Used before deleting: same size, same identity tokens and the same tuning
+    words, so an entry that only fits ('Qwen2.5-3B-Instruct-AWQ' against
+    'qwen2.5:3b') can never pick the target of a removal.
+    """
+    return any(_names_match_strictly(catalog_name, inst) for inst in installed_names)
+
+
 def match_installed_ids(catalog_names: list[str], installed_ids) -> dict[str, tuple[str, str]]:
     """Map catalog name -> (the engine's own model id, 'exact' | 'likely').
 
-    Two passes over one engine's model list. Pass 1 pairs on ``_names_match`` and
-    claims those ids; pass 2 only looks at ids nobody claimed. That ordering is
-    the whole point: an entry whose name carries extra qualifiers can pick up a
-    leftover id, while the entry that owns an id exactly always keeps it.
+    Two passes over one engine's model list, and **one id answers to one catalog
+    entry**: an installed file that lights up several rows (or, worse, hands a
+    deletion the wrong id) is the failure this prevents.
+
+    Pass 1 pairs on ``_names_match``; when several catalog names fit one id, the
+    plainest wins ('Qwen2.5-3B' over 'Qwen2.5-3B-Instruct' for ``qwen2.5:3b``) and
+    the others get nothing. Pass 2 hands each leftover id to the closest name,
+    preferring ids that simply carry extra qualifiers.
     """
     ids = list(dict.fromkeys(installed_ids))  # dedupe, keep the engine's order
-    exact_ids: set[str] = set()
-    taken: set[str] = set()
     out: dict[str, tuple[str, str]] = {}
 
-    # Pass 1: exact token matches. Several catalog spellings of the same model
-    # ("Qwen2.5-7B" and "Qwen2.5-7B-Instruct") may share one engine id — they are
-    # the same model, and hiding one of them would be the same false negative.
+    # Pass 1: exact matches (size, identity tokens and qualifier words agree).
+    candidates: dict[str, list[str]] = {}
     for cat in catalog_names:
         for inst in ids:
             if _names_match(cat, inst):
-                out[cat] = (inst, "exact")
-                exact_ids.add(inst)
+                candidates.setdefault(inst, []).append(cat)
                 break
+    for inst, names in candidates.items():
+        plainest = min(names, key=lambda name: (len(_core_tokens(name)[1]), len(name), name))
+        out[plainest] = (inst, "exact")
 
-    # Pass 2: leftover ids only. An id with an exact owner is off-limits, which
-    # is what stops a variant row ('gemma-2-2b-jpn-it') from claiming the base
-    # model's id, and each leftover id is handed out once.
+    # Pass 2: leftover ids only, each handed out once, to the closest name.
+    taken: set[str] = set()
     for cat in catalog_names:
         if cat in out:
             continue
-        for inst in ids:
-            if inst not in exact_ids and inst not in taken and _names_match_likely(cat, inst):
-                out[cat] = (inst, "likely")
-                taken.add(inst)
-                break
+        hits = [
+            inst
+            for inst in ids
+            if inst not in candidates and inst not in taken and _names_match_likely(cat, inst)
+        ]
+        if not hits:
+            continue
+        inst = min(hits, key=lambda i: _likely_rank(cat, i))
+        out[cat] = (inst, "likely")
+        taken.add(inst)
 
     return out
+
+
+def _likely_rank(cat: str, inst: str) -> tuple[int, int, str]:
+    """Order the ids a fuzzy name could mean: ids carrying extra qualifiers first."""
+    cat_toks = _core_tokens(cat)[1]
+    inst_toks = _core_tokens(inst)[1]
+    return (0 if cat_toks <= inst_toks else 1, len(inst_toks - cat_toks), inst)
 
 
 # Words in a HuggingFace name that describe where a model came from, not what it

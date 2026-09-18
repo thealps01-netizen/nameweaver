@@ -44,6 +44,7 @@ from dialogs import AboutDialog, AlertDialog
 from hw import SystemSpecs
 from models import (
     LlmModel,
+    is_engine_compatible,
     load_all_models,
 )
 from providers import ProviderState, ProviderStatus
@@ -697,7 +698,6 @@ class MainWindow(QMainWindow):
         self._table_view.setModel(self._filter_proxy)
         self._table_view.model_selected.connect(self._on_model_selected)
         self._table_view.download_requested.connect(self._on_download_requested)
-        self._table_view.run_requested.connect(self._on_run_requested)
         self._table_view.remove_requested.connect(self._on_remove_requested)
         self._table_view.set_default_column_widths()
         table_card_layout.addWidget(self._table_view)
@@ -714,7 +714,6 @@ class MainWindow(QMainWindow):
 
         self._detail_panel = DetailPanel()
         self._detail_panel.download_requested.connect(self._on_download_requested)
-        self._detail_panel.run_requested.connect(self._open_in_my_models)
         detail_card_layout.addWidget(self._detail_panel)
         content_layout.addWidget(self._detail_card)
 
@@ -1383,7 +1382,12 @@ class MainWindow(QMainWindow):
         # claim their id before any fuzzy pairing gets a chance at it.
         from models import match_installed_ids
 
-        catalog_names = [fit.model.name for fit in self._fits]
+        # Only formats a local engine can actually run take part: an AWQ/GPTQ
+        # entry must never claim a GGUF engine's id (it is a different file).
+        # The match is applied per fit, not per name — two entries can share a
+        # name, and the one no engine can hold must not inherit the other's hit.
+        matchable_fits = [fit for fit in self._fits if is_engine_compatible(fit.model.format)]
+        catalog_names = [fit.model.name for fit in matchable_fits]
         for fit in self._fits:
             fit.installed_providers = []
             fit.likely_providers = []
@@ -1393,7 +1397,7 @@ class MainWindow(QMainWindow):
             if not engine_models:
                 continue
             matches = match_installed_ids(catalog_names, engine_models)
-            for fit in self._fits:
+            for fit in matchable_fits:
                 hit = matches.get(fit.model.name)
                 if hit is None:
                     continue
@@ -1549,21 +1553,6 @@ class MainWindow(QMainWindow):
         proxy_index = self._filter_proxy.mapFromSource(self._table_model.index(source_row, 0))
         if proxy_index.isValid():
             self._table_view.selectRow(proxy_index.row())
-
-    def _open_in_my_models(self, fit: ModelFit):
-        """The catalog's Run button hands the user to the page that runs things."""
-        self._show_page(1)
-        if not self._my_models.select_model(fit.model.name):
-            QMessageBox.information(
-                self,
-                "Not in My Models",
-                f"'{fit.model.name}' is marked as installed but the engine didn't list it.\n\n"
-                "Start the engine (or Refresh) and it should appear here.",
-            )
-
-    # ------------------------------------------------------------------
-    # Engine lifecycle handlers (start / install from pill widget)
-    # ------------------------------------------------------------------
 
     def _on_engine_start_requested(self, action_key: str):
         """Pill asked us to start an installed-but-off provider."""
@@ -1850,7 +1839,6 @@ class MainWindow(QMainWindow):
             quant=fb.quant_filter,
             license=fb.license_filter,
             capability=fb.capability_filter,
-            installed_only=fb.installed_only,
             min_tps=fb.min_tps,
         )
         visible = self._filter_proxy.rowCount()
@@ -2107,6 +2095,8 @@ class MainWindow(QMainWindow):
             return
 
         # LM Studio layout: ~/.lmstudio/models/<publisher>/<repo>/<file>.gguf
+        from downloader import sha256_for_file
+
         publisher, _, repo = repo_id.partition("/")
         dest_dir = self._lmstudio_models_dir() / publisher / repo
         try:
@@ -2125,6 +2115,7 @@ class MainWindow(QMainWindow):
             filename=filename,
             dest_dir=dest_dir,
             token=self._config.hf_token,
+            expected_sha256=sha256_for_file(files, filename),
         )
         dialog = DownloadDialog(
             worker,
@@ -2147,6 +2138,8 @@ class MainWindow(QMainWindow):
 
     def _start_gguf_download(self, fit: ModelFit):
         from PyQt6.QtWidgets import QFileDialog
+
+        from downloader import sha256_for_file
 
         resolved = self._resolve_gguf_repo(fit.model)
         if resolved is None:
@@ -2180,6 +2173,7 @@ class MainWindow(QMainWindow):
             filename=filename,
             dest_dir=Path(dest_str),
             token=self._config.hf_token,
+            expected_sha256=sha256_for_file(files, filename),
         )
         dialog = DownloadDialog(worker, title=f"Downloading {filename}", parent=self)
         self._download_workers.append(worker)
@@ -2195,84 +2189,25 @@ class MainWindow(QMainWindow):
         self._provider_worker.error.connect(lambda e: logger.error("Provider error: %s", e))
         self._provider_worker.start()
 
-    def _on_run_requested(self, fit: ModelFit):
-        """User clicked Run — open chat dialog against the engine that has it."""
-        from models import is_chat_model
-
-        model = fit.model
-
-        if not is_chat_model(model):
-            QMessageBox.information(
-                self,
-                "Embedding model",
-                f"'{model.name}' is an embedding model — the engines can embed text "
-                "with it, but it cannot hold a chat.",
-            )
-            return
-
-        # What the table already shows: exact installs, plus the engines whose own
-        # model id only probably is this entry (both carry a usable id).
-        mine = list(fit.installed_providers) + [
-            n for n in fit.likely_providers if n not in fit.installed_providers
-        ]
-
-        # Only engines that actually have this model AND are running are
-        # selectable — never offer an engine that would just 404.
-        matched_running = [p.name for p in self._providers if p.available and p.name in mine]
-        # Engines that have the model but whose server is off.
-        have_offline = [p.name for p in self._providers if not p.available and p.name in mine]
-
-        if not matched_running and have_offline:
-            eng = have_offline[0]
-            QMessageBox.information(
-                self,
-                "Start the engine",
-                f"'{model.name}' is downloaded in {eng}, but its server isn't running.\n\n"
-                f"Start {eng} (LM Studio: Developer → Start Server), then click Run again.",
-            )
-            return
-
-        if not matched_running:
-            QMessageBox.information(
-                self,
-                "Not installed",
-                f"'{model.name}' isn't installed in any running engine.\n\n"
-                "Download it first (Download button), then Run.",
-            )
-            return
-
-        providers = matched_running
-
-        # Resolve the real engine-side model id per provider (avoids 404s from
-        # sending the catalog name). The engine's own id came from detection;
-        # Ollama falls back to a generated tag.
-        ids = dict(fit.engine_ids)
-        model_ids: dict[str, str] = {}
-        for pname in providers:
-            if pname in ids:
-                model_ids[pname] = ids[pname]
-            elif pname.lower() == "ollama":
-                model_ids[pname] = self._pick_ollama_candidate(model.name) or model.name
-            else:
-                model_ids[pname] = model.name
-
-        supports_vision = "vision" in [c.lower() for c in (model.capabilities or [])]
-        dialog = ChatDialog(
-            model.name,
-            providers,
-            model_ids=model_ids,
-            supports_vision=supports_vision,
-            theme_name=self._config.theme,
-            parent=self,
-        )
-        dialog.show()
-        # Don't exec() — keep it modeless so the user can browse the catalog too
-
     def _on_remove_requested(self, fit: ModelFit):
         """User asked to uninstall a model from the engine(s) that hold it."""
+        from models import is_engine_compatible
         from runner import installed_model_ids
 
-        ids = installed_model_ids(fit.model.name, self._providers)
+        if not is_engine_compatible(fit.model.format):
+            # An AWQ/GPTQ entry cannot be held by a local engine at all, so a
+            # "Remove" on it has no target — never let the name reach a deletion.
+            QMessageBox.information(
+                self,
+                "Nothing to remove",
+                f"'{fit.model.name}' is {fit.model.format.upper()} — a format none of "
+                "your engines can hold, so it is not installed here.",
+            )
+            return
+
+        # strict=True: only a name whose tuning words match exactly may decide
+        # which files are deleted (removal is irreversible).
+        ids = installed_model_ids(fit.model.name, self._providers, strict=True)
         if not ids:
             QMessageBox.information(
                 self,
@@ -2282,11 +2217,12 @@ class MainWindow(QMainWindow):
             return
 
         engines = ", ".join(ids.keys())
+        targets = "\n".join(f"  · {pname}: {mid}" for pname, mid in ids.items())
         resp = QMessageBox.question(
             self,
             "Remove model",
             f"Remove '{fit.model.name}' from {engines}?\n\n"
-            "This permanently deletes the downloaded model files.",
+            f"This permanently deletes these model files:\n{targets}",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )

@@ -661,22 +661,22 @@ def apply_preference(fits: list[ModelFit], preference: float) -> None:
 def rank_models(
     fits: list[ModelFit],
     sort_by: SortColumn = SortColumn.SCORE,
-    installed_first: bool = True,
 ) -> list[ModelFit]:
-    """Sort model fits with TOO_TIGHT always last."""
+    """Sort model fits with TOO_TIGHT always last.
+
+    Deliberately not ordered by what is on disk: the catalog is a shopping list,
+    and pulling one installed model to the top (a fuzzy name match did that too)
+    buried better fits behind it. "What I own" is the My Models page.
+    """
 
     def sort_key(mf: ModelFit) -> tuple:
         # Third key is a float for the numeric columns (negated, so descending)
         # and a str for the text ones (release date / use case / provider).
         val: float | str
-        # Primary: models already on disk first — an exact install and a probable
-        # one both count, since both mean the files are there.
-        mine = bool(mf.installed or mf.installed_providers or mf.likely_providers)
-        installed = 0 if (installed_first and mine) else 1
-        # Secondary: TOO_TIGHT always last
+        # Primary: TOO_TIGHT always last
         tight = 1 if mf.fit_level == FitLevel.TOO_TIGHT else 0
 
-        # Tertiary: sort column (descending = negate)
+        # Secondary: sort column (descending = negate)
         if sort_by == SortColumn.SCORE:
             val = -mf.score
         elif sort_by == SortColumn.TPS:
@@ -696,7 +696,7 @@ def rank_models(
         else:
             val = -mf.score
 
-        return (installed, tight, val)
+        return (tight, val)
 
     return sorted(fits, key=sort_key)
 

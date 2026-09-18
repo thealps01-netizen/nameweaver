@@ -521,35 +521,29 @@ class TestEmbeddingModels:
         assert any("embedding" in note.lower() for note in fit.notes)
 
 
-class TestRankingCountsProbableInstalls:
-    def test_a_probable_install_sorts_with_the_installed_ones(self):
+class TestRankingIgnoresWhatIsInstalled:
+    def test_a_better_fit_outranks_an_installed_one(self):
+        """Being on disk no longer moves a row: the catalog is ranked by fit, and
+        what is installed has its own page (My Models)."""
         from models import LlmModel
         from scoring import rank_models
 
-        exact = ModelFit(
-            model=LlmModel(name="exact"),
+        installed = ModelFit(
+            model=LlmModel(name="installed"),
             fit_level=FitLevel.GOOD,
             run_mode=RunMode.GPU,
             score=50.0,
         )
-        exact.installed = True
-        exact.installed_providers = ["Ollama"]
+        installed.installed = True
+        installed.installed_providers = ["Ollama"]
 
-        probable = ModelFit(
-            model=LlmModel(name="probable"),
+        better = ModelFit(
+            model=LlmModel(name="better"),
             fit_level=FitLevel.GOOD,
             run_mode=RunMode.GPU,
-            score=40.0,
-        )
-        probable.likely_providers = ["Ollama"]
-
-        elsewhere = ModelFit(
-            model=LlmModel(name="elsewhere"),
-            fit_level=FitLevel.GOOD,
-            run_mode=RunMode.GPU,
-            score=99.0,
+            score=90.0,
         )
 
-        order = [f.model.name for f in rank_models([elsewhere, probable, exact])]
+        order = [f.model.name for f in rank_models([installed, better])]
 
-        assert order == ["exact", "probable", "elsewhere"]
+        assert order == ["better", "installed"]

@@ -2,7 +2,6 @@
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -19,7 +18,7 @@ class FilterBar(QWidget):
     """Horizontal bar with search input and filter dropdowns.
 
     Row 1: search, provider, use-case, fit level
-    Row 2: quantization, license, capability, installed-only toggle
+    Row 2: quantization, license, capability
     """
 
     filters_changed = pyqtSignal()
@@ -108,11 +107,6 @@ class FilterBar(QWidget):
         self._min_tps_combo.setToolTip("Target tokens per second — models below this are hidden")
         self._min_tps_combo.currentIndexChanged.connect(self._on_filter_changed)
         outer.addWidget(self._min_tps_combo, stretch=1)
-
-        # Installed only
-        self._installed_checkbox = QCheckBox("Installed")
-        self._installed_checkbox.stateChanged.connect(self._on_filter_changed)
-        outer.addWidget(self._installed_checkbox)
 
         # Quality ↔ Speed preference slider — biases the composite score
         # without re-analyzing models (uses stored score_components).
@@ -207,7 +201,6 @@ class FilterBar(QWidget):
             self._min_tps_combo,
         ):
             combo.setCurrentIndex(0)
-        self._installed_checkbox.setChecked(False)
 
     @property
     def search_text(self) -> str:
@@ -242,10 +235,6 @@ class FilterBar(QWidget):
         return self._cap_combo.currentData() or ""
 
     @property
-    def installed_only(self) -> bool:
-        return self._installed_checkbox.isChecked()
-
-    @property
     def min_tps(self) -> float:
         """Target minimum tokens/sec (0 = no filter)."""
         try:
@@ -265,7 +254,6 @@ class FilterBar(QWidget):
             "license": self.license_filter,
             "capability": self.capability_filter,
             "min_tps": self._min_tps_combo.currentData() or "0",
-            "installed_only": self.installed_only,
         }
 
     def set_filters(self, filters: dict) -> None:
@@ -289,9 +277,3 @@ class FilterBar(QWidget):
             if idx >= 0:
                 combo.setCurrentIndex(idx)
             combo.blockSignals(False)
-
-        # "Installed" always starts unchecked (show all models) — it is a
-        # transient view toggle, not a persisted preference.
-        self._installed_checkbox.blockSignals(True)
-        self._installed_checkbox.setChecked(False)
-        self._installed_checkbox.blockSignals(False)

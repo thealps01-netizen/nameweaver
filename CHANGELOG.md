@@ -5,6 +5,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ## [Unreleased]
+### Changed
+- **Katalog artık "kurulu" iddia etmiyor**: Installed filtresi, detay panelindeki "Installed:" satırı, "Run →" butonu (ve tablodaki sağ tık Run), "kurulu önce" sıralaması kaldırıldı. Ölçülen sebep: tek bir kurulu dosya (`qwen2.5:3b`) üç katalog satırını "kurulu" gösteriyordu (`Qwen2.5-3B`, `Qwen2.5-3B-Instruct`, `Qwen2.5-3B-Instruct-AWQ`) — üstelik AWQ satırı yerelde çalışmayan bir format olduğu hâlde. Katalog şimdi yalnızca "indirebilir miyim + donanımıma uyar mı" sorusunu yanıtlıyor; "neye sahibim, neyi çalıştırabilirim" My Models sayfasında. Katalog satırındaki **Runs** trafik ışığı duruyor (hangi motorun çalıştırabileceğini söyler, kurulu olduğunu değil).
+
+### Fixed
+- **Bir motor modeli artık tek katalog satırına bağlanıyor**: `models.match_installed_ids` tek sahip kuralıyla çalışıyor — bir id'ye birden çok ad uyuyorsa **en sade ad** kazanır, diğerleri eşleşmez. Taban model ile instruct sürümü birbirini dışlar (`-Base` ↔ `:instruct` eşleşmez); Ollama'nın çıplak tag'i instruction-tuned dosya sayıldığı için `Llama-3.1-8B-Instruct` ↔ `llama3.1:8b` eşleşmeye devam eder.
+- **Silme yolu katı ve format kapılı**: `runner.installed_model_ids(strict=True)` yalnız aynı tuning kelimelerine sahip adı eşler ve AWQ/GPTQ gibi yerelde tutulamayan formatlar silme yoluna hiç girmez; onay penceresi silinecek dosyaları motor id'siyle tek tek listeler. Önceden `Qwen2.5-3B-Instruct-AWQ` satırındaki Remove, `qwen2.5:3b` dosyalarını silebilirdi (geri dönüşsüz).
+- **AWQ/GPTQ girişi bir motor modeli sahiplenemez**: eşleştirmeye yalnız motorların çalıştırabildiği formatlar girer ve eşleşme satır başına uygulanır — aynı adı taşıyan uyumlu kardeşi kendi eşleşmesini uyumsuz satıra devredemez.
+
 
 ## [0.1.31] - 2026-09-18
 ### Added

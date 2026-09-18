@@ -10,6 +10,7 @@ from models import (
     is_trusted_source,
     match_installed_ids,
     name_matches_installed,
+    name_matches_installed_strictly,
     normalize_model_name,
     ollama_tag_candidates,
 )
@@ -197,12 +198,29 @@ class TestTwoPassInstalledMatching:
         assert len(matches) == 1
         assert matches["Mistral-7B-Instruct"] == ("mistral:7b-instruct", "exact")
 
-    def test_catalog_spellings_of_one_model_share_its_engine_id(self):
-        """Hiding one of them would be the same false negative we are fixing."""
-        matches = match_installed_ids(["Qwen2.5-7B", "Qwen2.5-7B-Instruct"], ["qwen2.5:7b"])
+    def test_one_installed_file_answers_for_one_catalog_row(self):
+        """Several spellings fit one id; letting them all claim it made a single
+        downloaded model look like three installed ones."""
+        matches = match_installed_ids(["Qwen2.5-3B", "Qwen2.5-3B-Instruct"], ["qwen2.5:3b"])
 
-        assert matches["Qwen2.5-7B"] == ("qwen2.5:7b", "exact")
-        assert matches["Qwen2.5-7B-Instruct"] == ("qwen2.5:7b", "exact")
+        assert matches["Qwen2.5-3B"] == ("qwen2.5:3b", "exact")  # the plainer name wins
+        assert "Qwen2.5-3B-Instruct" not in matches
+
+    def test_a_base_entry_cannot_claim_an_instruct_engine_id(self):
+        assert match_installed_ids(["Qwen2.5-3B-Base"], ["qwen2.5:3b-instruct"]) == {}
+
+    def test_an_explicit_instruct_entry_still_fits_a_bare_tag(self):
+        """Ollama's bare tag *is* the instruction-tuned file, so the absence of
+        the word is not evidence against the match."""
+        assert match_installed_ids(["Llama-3.1-8B-Instruct"], ["llama3.1:8b"]) == {
+            "Llama-3.1-8B-Instruct": ("llama3.1:8b", "exact")
+        }
+
+    def test_deleting_demands_the_same_tuning_words(self):
+        """Removal is irreversible, so a name that only *fits* must not pick the
+        target of a deletion."""
+        assert name_matches_installed_strictly("Qwen2.5-3B", ["qwen2.5:3b"])
+        assert not name_matches_installed_strictly("Qwen2.5-3B-Instruct", ["qwen2.5:3b"])
 
 
 class TestChatCapability:
