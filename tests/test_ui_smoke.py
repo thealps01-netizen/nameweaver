@@ -518,3 +518,61 @@ class TestMyModelsPageWiring:
         # Engine says embedding-only → never runnable, and no catalog entry needed.
         assert view.cell_text(1, 6) == "no"
         assert view.run_button(1).isEnabled() is False
+
+
+def test_engine_popup_rows_follow_their_engine_when_the_list_changes(qtbot):
+    """Detection re-runs while the popup is open: each row must update from its
+    own engine, not from whatever provider now sits at its position — and it must
+    update at all (replacing the widget does not work, QWidgetAction keeps the
+    first one it was given)."""
+    from providers import ProviderState, ProviderStatus
+    from widgets.engine_status import EngineStatusPill
+
+    pill = EngineStatusPill("dark")
+    qtbot.addWidget(pill)
+
+    def _p(name, state, available):
+        status = ProviderStatus(name=name, available=available)
+        status.state = state
+        return status
+
+    pill.update_status(
+        [
+            _p("Ollama", ProviderState.READY, True),
+            _p("LM Studio", ProviderState.INSTALLED_OFF, False),
+        ]
+    )
+    pill._build_popup_menu()
+    assert pill._popup_rows["LM Studio"]._state.text() == "— off"
+
+    # Ollama disappears, llama.cpp appears, LM Studio starts up, order flips.
+    pill.update_status(
+        [
+            _p("llama.cpp", ProviderState.NOT_INSTALLED, False),
+            _p("LM Studio", ProviderState.READY, True),
+        ]
+    )
+    pill._refresh_popup_rows()
+
+    assert set(pill._popup_rows) == {"Ollama", "LM Studio"}  # a gone engine keeps its row
+    assert pill._popup_rows["LM Studio"]._state.text() == "— running"
+    assert pill._popup_rows["Ollama"]._name.text() == "Ollama"
+
+
+def test_an_open_popup_shows_the_busy_state_of_its_engine(qtbot):
+    from providers import ProviderState, ProviderStatus
+    from widgets.engine_status import EngineStatusPill
+
+    pill = EngineStatusPill("dark")
+    qtbot.addWidget(pill)
+    status = ProviderStatus(name="Ollama", available=False, start_action="start_ollama")
+    status.state = ProviderState.INSTALLED_OFF
+    pill.update_status([status])
+
+    menu = pill._build_popup_menu()
+    pill._current_menu = menu
+    menu.setVisible(True)
+    pill.set_provider_busy("Ollama", True, "start")
+
+    texts = [lbl.text() for lbl in pill._popup_rows["Ollama"].findChildren(QLabel)]
+    assert "Starting…" in texts

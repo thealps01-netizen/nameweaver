@@ -3,7 +3,6 @@
 import ctypes
 import logging
 import platform
-import re
 import sys
 import traceback
 from pathlib import Path
@@ -1884,22 +1883,15 @@ class MainWindow(QMainWindow):
     # -----------------------------------------------------------------------
 
     def _pick_ollama_candidate(self, model_name: str) -> str | None:
-        """Guess an Ollama tag ('family:size') from a HF-style model name.
+        """The most likely Ollama tag for a catalog name, or None.
 
-        E.g. 'Llama-3.1-8B-Instruct' → 'llama3.1:8b', 'Qwen2.5-7B' → 'qwen2.5:7b',
-        'Mixtral-8x7B' → 'mixtral:8x7b'. The dialog is editable, so this is only
-        a starting point.
+        The guess itself lives in models.ollama_tag_candidates so the download
+        flow can offer every candidate and the run path can use the first.
         """
-        name = (model_name or "").strip()
-        # Size token: "8B", "1.5B", "8x7B"
-        m = re.search(r"(\d+(?:\.\d+)?x\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*[bB]\b", name)
-        if m:
-            size = m.group(1).lower() + "b"
-            family = re.sub(r"[\s_\-]+", "", name[: m.start()].lower())
-            if family:
-                return f"{family}:{size}"
-        # Fallback: slugified name, let Ollama resolve (it errors if unknown).
-        return re.sub(r"[\s_]+", "-", name.lower())
+        from models import ollama_tag_candidates
+
+        candidates = ollama_tag_candidates(model_name)
+        return candidates[0] if candidates else None
 
     def _resolve_gguf_repo(self, model) -> tuple[str, list[dict]] | None:
         """Find a GGUF repo for a model, auto-searching if direct repo lacks GGUFs.

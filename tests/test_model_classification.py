@@ -11,6 +11,7 @@ from models import (
     match_installed_ids,
     name_matches_installed,
     normalize_model_name,
+    ollama_tag_candidates,
 )
 
 
@@ -217,3 +218,31 @@ class TestChatCapability:
     def test_chat_models_stay_chattable(self):
         assert is_chat_model(LlmModel(name="Llama-3.1-8B", use_case="general"))
         assert is_chat_model(LlmModel(name="llama3.1:8b"))
+
+
+class TestOllamaTagCandidates:
+    """The download flow's prefill: library naming, not the HuggingFace spelling."""
+
+    def test_a_distilled_name_keeps_only_the_family_it_is_named_after(self):
+        assert ollama_tag_candidates("DeepSeek-R1-Distill-Qwen-7B")[0] == "deepseek-r1:7b"
+
+    def test_a_version_word_joins_the_family(self):
+        assert ollama_tag_candidates("Llama-3.1-8B-Instruct")[0] == "llama3.1:8b"
+        assert ollama_tag_candidates("Gemma-3-4B-it")[0] == "gemma3:4b"
+
+    def test_a_second_family_word_is_hyphenated(self):
+        assert ollama_tag_candidates("Qwen2.5-Coder-7B-Instruct")[0] == "qwen2.5-coder:7b"
+
+    def test_the_publisher_prefix_is_dropped(self):
+        assert ollama_tag_candidates("Qwen/Qwen2.5-7B")[0] == "qwen2.5:7b"
+
+    def test_an_moe_size_token_survives(self):
+        assert ollama_tag_candidates("Mixtral-8x7B-Instruct")[0] == "mixtral:8x7b"
+
+    def test_an_alternative_spelling_is_offered_too(self):
+        candidates = ollama_tag_candidates("DeepSeek-R1-Distill-Qwen-7B")
+        assert candidates[0] == "deepseek-r1:7b"
+        assert "deepseekr1:7b" in candidates
+
+    def test_nothing_to_guess_from(self):
+        assert ollama_tag_candidates("") == []

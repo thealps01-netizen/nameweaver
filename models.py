@@ -353,6 +353,60 @@ def match_installed_ids(catalog_names: list[str], installed_ids) -> dict[str, tu
     return out
 
 
+# Words in a HuggingFace name that describe where a model came from, not what it
+# is. Ollama's library names drop them, and everything from the first one onward
+# belongs to that description ("DeepSeek-R1-Distill-Qwen-7B" is "deepseek-r1:7b").
+_OLLAMA_PROVENANCE: frozenset[str] = frozenset(
+    {"distill", "distilled", "derived", "finetune", "ft"}
+)
+
+# A version written as its own word ("llama 3.1") is joined to the family in
+# Ollama's names, while a second family word is hyphenated ("qwen2.5-coder").
+_PURE_VERSION_RE = re.compile(r"^\d+(\.\d+)?$")
+
+
+def ollama_tag_candidates(model_name: str) -> list[str]:
+    """Best guesses for this model's Ollama tag, most likely first.
+
+    A prefill for the download flow, not a lookup table: Ollama's library drops
+    the publisher prefix, the provenance words and the tuning suffixes a
+    HuggingFace name carries, and its separators vary ('llama3.1:8b' but
+    'deepseek-r1:7b'). Every candidate is offered to the user, who can edit.
+    """
+    name = (model_name or "").strip()
+    if not name:
+        return []
+
+    lower = name.lower().rsplit("/", 1)[-1]  # 'Qwen/Qwen2.5-7B' → 'qwen2.5-7b'
+    size_match = re.search(r"(\d+(?:\.\d+)?x\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*b\b", lower)
+    size = f"{size_match.group(1)}b" if size_match else ""
+    head = _QUANT_RE.sub(" ", lower[: size_match.start()] if size_match else lower)
+
+    words: list[str] = []
+    for word in re.split(r"[\s_\-]+", head):
+        if not word:
+            continue
+        if word in _OLLAMA_PROVENANCE:
+            break  # provenance and everything after it are not the model's name
+        if word in _GENERIC_WORDS:
+            continue
+        words.append(word)
+    if not words:
+        return []
+
+    suffix = f":{size}" if size else ""
+    if len(words) == 1:
+        return [f"{words[0]}{suffix}"]
+
+    joined = "".join(words)  # llama + 3.1 → llama3.1
+    hyphenated = "-".join(words)  # qwen2.5 + coder → qwen2.5-coder
+    if any(_PURE_VERSION_RE.match(w) for w in words):
+        ordered = [joined, hyphenated]
+    else:
+        ordered = [hyphenated, joined]
+    return [f"{family}{suffix}" for family in dict.fromkeys(ordered)]
+
+
 def is_chat_model(model) -> bool:
     """Whether a chat UI can talk to this model at all.
 

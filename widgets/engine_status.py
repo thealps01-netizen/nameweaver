@@ -63,6 +63,169 @@ def _pick_primary(providers: list[ProviderStatus]) -> ProviderStatus | None:
     return providers[0] if providers else None
 
 
+class _ProviderRow(QFrame):
+    """One engine's row in the popup, updated in place.
+
+    The popup runs its own event loop, so detection results and busy flags can
+    change while it is open. Replacing the row widget does not work —
+    QWidgetAction keeps the first widget it was handed — so the row updates
+    itself, and it can only ever update from the engine it was built for.
+    """
+
+    def __init__(self, provider_name: str, on_row_clicked, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.provider_name = provider_name
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.mousePressEvent = lambda _e: on_row_clicked(provider_name)
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(10)
+
+        self._dot = QLabel("●")
+        lay.addWidget(self._dot)
+
+        self._name = QLabel(provider_name)
+        self._name.setStyleSheet("font-size: 12px; font-weight: 600;")
+        lay.addWidget(self._name)
+
+        self._check = QLabel()
+        self._check.setVisible(False)
+        lay.addWidget(self._check)
+
+        self._state = QLabel("")
+        lay.addWidget(self._state)
+        lay.addStretch(1)
+
+        self._action_area = QWidget()
+        self._action_lay = QHBoxLayout(self._action_area)
+        self._action_lay.setContentsMargins(0, 0, 0, 0)
+        self._action_lay.setSpacing(6)
+        lay.addWidget(self._action_area)
+
+    def update_from(
+        self,
+        p: ProviderStatus,
+        t: ThemeColors,
+        *,
+        featured_name: str = "",
+        busy: str = "",
+        handlers: dict | None = None,
+    ) -> None:
+        """Re-render this row from its engine (``busy`` is "" | "start" | "stop")."""
+        handlers = handlers or {}
+        is_featured = featured_name == self.provider_name
+
+        self.setStyleSheet(
+            f"QFrame {{ background: transparent; border-radius: 8px; }}"
+            f" QLabel {{ color: {t.fg}; background: transparent; border: none; }}"
+        )
+        dot_color = (
+            t.good
+            if p.state == ProviderState.READY
+            else t.warning
+            if p.state == ProviderState.INSTALLED_OFF
+            else t.error
+        )
+        self._dot.setStyleSheet(f"color: {dot_color}; font-size: 14px;")
+        self._name.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {t.fg};")
+
+        self._check.setVisible(is_featured)
+        if is_featured:
+            self._check.setPixmap(
+                qta.icon("mdi6.check-circle", color=t.accent).pixmap(QSize(15, 15))
+            )
+
+        state_text = {
+            ProviderState.READY: "running",
+            ProviderState.INSTALLED_OFF: "off",
+            ProviderState.NOT_INSTALLED: "not installed",
+        }[p.state]
+        self._state.setText(f"— {state_text}")
+        self._state.setStyleSheet(f"color: {t.fg_muted}; font-size: 11px;")
+
+        self._rebuild_action(p, t, busy, handlers)
+
+    # ------------------------------------------------------------------ action
+
+    def _clear_action(self) -> None:
+        while self._action_lay.count():
+            item = self._action_lay.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+    def _rebuild_action(self, p: ProviderStatus, t: ThemeColors, busy: str, handlers: dict) -> None:
+        self._clear_action()
+
+        if busy:
+            label = QLabel("Starting…" if busy == "start" else "Stopping…")
+            label.setStyleSheet(
+                f"color: {t.fg_muted}; font-size: 11px; font-style: italic;"
+                f" background: transparent; border: none;"
+            )
+            self._action_lay.addWidget(label)
+            spinner = QPushButton()
+            spinner.setFixedSize(22, 22)
+            spinner.setFlat(True)
+            spinner.setEnabled(False)
+            spinner.setCursor(Qt.CursorShape.ArrowCursor)
+            spinner.setStyleSheet(
+                "QPushButton { background: transparent; border: none; }"
+                " QPushButton:disabled { background: transparent; }"
+            )
+            spinner.setIcon(qta.icon("mdi6.loading", color=t.accent, animation=qta.Spin(spinner)))
+            spinner.setIconSize(QSize(16, 16))
+            self._action_lay.addWidget(spinner)
+            return
+
+        outline = (
+            f"QPushButton {{ background: transparent; color: {t.accent};"
+            f" border: 1px solid {t.accent}; border-radius: 6px;"
+            f" padding: 3px 10px; font-size: 11px; font-weight: 600; }}"
+            f" QPushButton:hover {{ background: {t.accent}; color: {t.accent_text}; }}"
+        )
+        solid_warning = (
+            f"QPushButton {{ background: transparent; color: {t.warning};"
+            f" border: 1px solid {t.warning}; border-radius: 6px;"
+            f" padding: 3px 10px; font-size: 11px; font-weight: 600; }}"
+            f" QPushButton:hover {{ background: {t.warning}; color: {t.accent_text}; }}"
+        )
+        solid_accent = (
+            f"QPushButton {{ background: {t.accent}; color: {t.accent_text};"
+            f" border: none; border-radius: 6px; padding: 3px 10px;"
+            f" font-size: 11px; font-weight: 600; }}"
+            f" QPushButton:hover {{ background: {t.accent_hover}; }}"
+        )
+
+        if p.state == ProviderState.READY and p.stop_action:
+            btn = QPushButton("Stop")
+            btn.setStyleSheet(solid_warning)
+            btn.clicked.connect(
+                lambda _=False: handlers.get("stop", lambda *_a: None)(
+                    p.stop_action, self.provider_name
+                )
+            )
+        elif p.state == ProviderState.INSTALLED_OFF and p.start_action:
+            btn = QPushButton("Start")
+            btn.setStyleSheet(solid_accent)
+            btn.clicked.connect(
+                lambda _=False: handlers.get("start", lambda *_a: None)(
+                    p.start_action, self.provider_name
+                )
+            )
+        elif p.state == ProviderState.NOT_INSTALLED:
+            btn = QPushButton("Install")
+            btn.setStyleSheet(outline)
+            btn.clicked.connect(lambda _=False: handlers.get("install", lambda _n: None)(p.name))
+        else:
+            return
+
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._action_lay.addWidget(btn)
+
+
 class EngineStatusPill(QFrame):
     """Clickable status chip for the system bar."""
 
@@ -79,6 +242,7 @@ class EngineStatusPill(QFrame):
         self._busy_names: set[str] = set()  # providers mid-start/stop
         self._busy_actions: dict[str, str] = {}  # name -> "start" | "stop"
         self._current_menu: QMenu | None = None
+        self._popup_rows: dict[str, _ProviderRow] = {}  # engine name -> its row
         self._selected_name: str | None = None  # user-chosen featured engine
 
         layout = QHBoxLayout(self)
@@ -319,154 +483,80 @@ class EngineStatusPill(QFrame):
         menu = self._current_menu
         if menu is None or not menu.isVisible():
             return
+        self._refresh_popup_rows()
+
+    def _refresh_popup_rows(self) -> None:
+        """Re-render every open popup row, each from its own engine.
+
+        Rows are held by engine name, never by position: detection re-runs every
+        few seconds and the popup runs its own event loop, so a list that gained,
+        lost or reordered an engine must not hand a row another engine's state.
+        An engine that is gone keeps its last row rather than being relabelled.
+        """
         t = get_theme(self._theme_name)
-        actions = menu.actions()
-        for p, act in zip(self._providers, actions):
-            if isinstance(act, QWidgetAction):
-                act.setDefaultWidget(self._build_row(p, t))
+        by_name = {p.name: p for p in self._providers}
+        featured = self._primary()
+        for name, row in self._popup_rows.items():
+            provider = by_name.get(name)
+            if provider is None:
+                continue
+            row.update_from(
+                provider,
+                t,
+                featured_name=featured.name if featured else "",
+                busy=self._busy_actions.get(name, "") if name in self._busy_names else "",
+                handlers=self._row_handlers(),
+            )
+
+    def _row_handlers(self) -> dict:
+        return {
+            "start": self._on_row_start,
+            "stop": self._on_row_stop,
+            "install": self.install_requested.emit,
+        }
+
+    def _on_row_start(self, action_key: str, name: str = "") -> None:
+        if name:
+            self.set_provider_busy(name, True, "start")
+        self.start_requested.emit(action_key)
+
+    def _on_row_stop(self, action_key: str, name: str = "") -> None:
+        if name:
+            self.set_provider_busy(name, True, "stop")
+        self.stop_requested.emit(action_key)
+
+    def _build_popup_menu(self) -> QMenu:
+        """The per-provider popup, holding one live row per engine."""
+        t = get_theme(self._theme_name)
+        menu = QMenu(self)
+        menu.setObjectName("engine_popup")
+        self._popup_rows = {}
+        featured = self._primary()
+
+        for p in self._providers:
+            row = _ProviderRow(p.name, self._select_engine)
+            row.update_from(
+                p,
+                t,
+                featured_name=featured.name if featured else "",
+                busy=self._busy_actions.get(p.name, "") if p.name in self._busy_names else "",
+                handlers=self._row_handlers(),
+            )
+            self._popup_rows[p.name] = row
+            act = QWidgetAction(menu)
+            act.setDefaultWidget(row)
+            menu.addAction(act)
+        return menu
 
     def _show_details_popup(self) -> None:
         """Popup listing every provider and its individual state/action."""
         if not self._providers:
             return
-        t = get_theme(self._theme_name)
-        menu = QMenu(self)
-        menu.setObjectName("engine_popup")
+        menu = self._build_popup_menu()
         self._current_menu = menu
-
-        for p in self._providers:
-            row = self._build_row(p, t)
-            act = QWidgetAction(menu)
-            act.setDefaultWidget(row)
-            menu.addAction(act)
 
         try:
             menu.exec(self.mapToGlobal(self.rect().bottomLeft()))
         finally:
             self._current_menu = None
-
-    def _build_row(self, p: ProviderStatus, t: ThemeColors) -> QWidget:
-        featured = self._primary()
-        is_featured = featured is not None and featured.name == p.name
-
-        row = QFrame()
-        row.setStyleSheet(
-            f"QFrame {{ background: transparent; border-radius: 8px; }}"
-            f" QLabel {{ color: {t.fg}; background: transparent; border: none; }}"
-        )
-        # Clicking the row (outside the action button) features this engine.
-        row.setCursor(Qt.CursorShape.PointingHandCursor)
-        row.mousePressEvent = lambda _e, n=p.name: self._select_engine(n)
-        lay = QHBoxLayout(row)
-        lay.setContentsMargins(12, 8, 12, 8)
-        lay.setSpacing(10)
-
-        dot_color = (
-            t.good
-            if p.state == ProviderState.READY
-            else t.warning
-            if p.state == ProviderState.INSTALLED_OFF
-            else t.error
-        )
-        dot = QLabel("●")
-        dot.setStyleSheet(f"color: {dot_color}; font-size: 14px;")
-        lay.addWidget(dot)
-
-        name_lbl = QLabel(p.name)
-        name_lbl.setStyleSheet("font-size: 12px; font-weight: 600;")
-        lay.addWidget(name_lbl)
-
-        # Check mark on the currently-featured engine.
-        if is_featured:
-            check = QLabel()
-            check.setPixmap(qta.icon("mdi6.check-circle", color=t.accent).pixmap(QSize(15, 15)))
-            check.setStyleSheet("background: transparent; border: none;")
-            lay.addWidget(check)
-
-        state_text = {
-            ProviderState.READY: "running",
-            ProviderState.INSTALLED_OFF: "off",
-            ProviderState.NOT_INSTALLED: "not installed",
-        }[p.state]
-        state_lbl = QLabel(f"— {state_text}")
-        state_lbl.setStyleSheet(f"color: {t.fg_muted}; font-size: 11px;")
-        lay.addWidget(state_lbl)
-
-        lay.addStretch(1)
-
-        # Busy → show spinner instead of action button
-        if p.name in self._busy_names:
-            action = self._busy_actions.get(p.name, "start")
-            busy_lbl = QLabel("Starting…" if action == "start" else "Stopping…")
-            busy_lbl.setStyleSheet(
-                f"color: {t.fg_muted}; font-size: 11px; font-style: italic;"
-                f" background: transparent; border: none;"
-            )
-            lay.addWidget(busy_lbl)
-            spinner = QPushButton()
-            spinner.setFixedSize(22, 22)
-            spinner.setFlat(True)
-            spinner.setEnabled(False)
-            spinner.setCursor(Qt.CursorShape.ArrowCursor)
-            spinner.setStyleSheet(
-                "QPushButton { background: transparent; border: none; }"
-                " QPushButton:disabled { background: transparent; }"
-            )
-            spinner.setIcon(
-                qta.icon(
-                    "mdi6.loading",
-                    color=t.accent,
-                    animation=qta.Spin(spinner),
-                )
-            )
-            spinner.setIconSize(QSize(16, 16))
-            lay.addWidget(spinner)
-            return row
-
-        if p.state == ProviderState.READY and p.stop_action:
-            btn = QPushButton("Stop")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(
-                f"QPushButton {{ background: transparent; color: {t.warning};"
-                f" border: 1px solid {t.warning}; border-radius: 6px;"
-                f" padding: 3px 10px; font-size: 11px; font-weight: 600; }}"
-                f" QPushButton:hover {{ background: {t.warning};"
-                f" color: {t.accent_text}; }}"
-            )
-
-            def _on_stop(_=False, key=p.stop_action, name=p.name):
-                self.set_provider_busy(name, True, "stop")
-                self.stop_requested.emit(key)
-
-            btn.clicked.connect(_on_stop)
-            lay.addWidget(btn)
-        elif p.state == ProviderState.INSTALLED_OFF and p.start_action:
-            btn = QPushButton("Start")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(
-                f"QPushButton {{ background: {t.accent}; color: {t.accent_text};"
-                f" border: none; border-radius: 6px; padding: 3px 10px;"
-                f" font-size: 11px; font-weight: 600; }}"
-                f" QPushButton:hover {{ background: {t.accent_hover}; }}"
-            )
-
-            def _on_start(_=False, key=p.start_action, name=p.name):
-                self.set_provider_busy(name, True, "start")
-                self.start_requested.emit(key)
-
-            btn.clicked.connect(_on_start)
-            lay.addWidget(btn)
-        elif p.state == ProviderState.NOT_INSTALLED:
-            btn = QPushButton("Install")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(
-                f"QPushButton {{ background: transparent; color: {t.accent};"
-                f" border: 1px solid {t.accent}; border-radius: 6px;"
-                f" padding: 3px 10px; font-size: 11px; font-weight: 600; }}"
-                f" QPushButton:hover {{ background: {t.accent};"
-                f" color: {t.accent_text}; }}"
-            )
-            btn.clicked.connect(lambda _=False, n=p.name: self.install_requested.emit(n))
-            lay.addWidget(btn)
-
-        return row
+            self._popup_rows = {}
