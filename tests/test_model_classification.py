@@ -2,10 +2,13 @@
 
 from models import (
     LlmModel,
+    UseCase,
+    is_chat_model,
     is_engine_compatible,
     is_official_provider,
     is_reupload,
     is_trusted_source,
+    match_installed_ids,
     name_matches_installed,
     normalize_model_name,
 )
@@ -150,3 +153,67 @@ def test_runnability_traffic_light():
 
     too_tight = ModelFit(model=LlmModel(name="m", format="gguf"), fit_level=FitLevel.TOO_TIGHT)
     assert runnability(too_tight)[1] == "red"
+
+
+class TestTwoPassInstalledMatching:
+    """`match_installed_ids`: exact matches claim an engine id, probable ones get
+    what is left. This is what keeps a variant row from stealing the base model."""
+
+    def test_a_distilled_catalog_name_gets_the_engine_id(self):
+        matches = match_installed_ids(["DeepSeek-R1-Distill-Qwen-7B"], ["deepseek-r1:7b"])
+
+        assert matches == {"DeepSeek-R1-Distill-Qwen-7B": ("deepseek-r1:7b", "likely")}
+
+    def test_a_name_without_a_size_token_still_matches(self):
+        # The real install this was written against (both are embedders).
+        matches = match_installed_ids(["nomic-embed-text-v1.5"], ["nomic-embed-text:latest"])
+
+        assert matches == {"nomic-embed-text-v1.5": ("nomic-embed-text:latest", "likely")}
+
+    def test_exact_match_wins_the_id_over_a_variant(self):
+        matches = match_installed_ids(["gemma-2-2b", "gemma-2-2b-jpn-it"], ["gemma2:2b"])
+
+        assert matches == {"gemma-2-2b": ("gemma2:2b", "exact")}
+
+    def test_an_older_release_does_not_steal_the_newer_row(self):
+        matches = match_installed_ids(["Llama-3-8B", "Llama-3.1-8B"], ["llama3:8b"])
+
+        assert matches == {"Llama-3-8B": ("llama3:8b", "exact")}
+
+    def test_a_variant_keeps_the_id_when_it_has_no_exact_home(self):
+        matches = match_installed_ids(["gemma-2-2b-jpn-it"], ["gemma2:2b"])
+
+        assert matches == {"gemma-2-2b-jpn-it": ("gemma2:2b", "likely")}
+
+    def test_probable_matching_still_requires_the_same_size(self):
+        assert match_installed_ids(["Llama-3.1-8B"], ["llama3:70b"]) == {}
+
+    def test_one_engine_id_is_claimed_once(self):
+        matches = match_installed_ids(
+            ["Mistral-7B-Instruct", "Mistral-7B-Instruct-v0.3"], ["mistral:7b-instruct"]
+        )
+
+        assert len(matches) == 1
+        assert matches["Mistral-7B-Instruct"] == ("mistral:7b-instruct", "exact")
+
+    def test_catalog_spellings_of_one_model_share_its_engine_id(self):
+        """Hiding one of them would be the same false negative we are fixing."""
+        matches = match_installed_ids(["Qwen2.5-7B", "Qwen2.5-7B-Instruct"], ["qwen2.5:7b"])
+
+        assert matches["Qwen2.5-7B"] == ("qwen2.5:7b", "exact")
+        assert matches["Qwen2.5-7B-Instruct"] == ("qwen2.5:7b", "exact")
+
+
+class TestChatCapability:
+    """Embedding models are runnable by an engine but cannot hold a chat."""
+
+    def test_embedding_use_case_is_not_chattable(self):
+        assert not is_chat_model(LlmModel(name="nomic-embed-text", use_case=UseCase.EMBEDDING))
+        assert not is_chat_model(LlmModel(name="nomic-embed-text", use_case="embedding"))
+
+    def test_an_embedding_capability_also_blocks_chat(self):
+        assert not is_chat_model(LlmModel(name="bge-m3", capabilities=["embedding"]))
+
+    def test_chat_models_stay_chattable(self):
+        assert is_chat_model(LlmModel(name="Llama-3.1-8B", use_case="general"))
+        assert is_chat_model(LlmModel(name="llama3.1:8b"))

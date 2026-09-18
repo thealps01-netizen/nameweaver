@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models import is_engine_compatible, size_class
+from models import is_chat_model, is_engine_compatible, size_class
 from scoring import FitLevel, ModelFit, RunMode, pc_comfort, runnability
 from themes import get_theme
 
@@ -255,6 +255,9 @@ class DetailPanel(QWidget):
         # A format no local engine can run (AWQ/GPTQ…) is a dead end here —
         # disable Download/Run and point the user at the GGUF version instead.
         compatible = is_engine_compatible(fit.model.format)
+        installed_in = getattr(fit, "installed_providers", []) or []
+        likely_in = getattr(fit, "likely_providers", []) or []
+        engine_ids = getattr(fit, "engine_ids", {}) or {}
         incompatible_hint = (
             f"{fit.model.format.upper()} won't run on your local engines — "
             "look for the GGUF version of this model."
@@ -262,18 +265,23 @@ class DetailPanel(QWidget):
         self._download_btn.setEnabled(compatible)
         self._download_btn.setToolTip("" if compatible else incompatible_hint)
         self._copy_btn.setEnabled(True)
-        # Run only if the format is runnable, it's installed, and it fits.
-        can_run = (
-            compatible and getattr(fit, "installed", False) and fit.fit_level != FitLevel.TOO_TIGHT
-        )
+        # Run only if the format is runnable, the model is on disk (exactly or
+        # probably), it fits, and it is something a chat can talk to at all.
+        on_disk = bool(installed_in or likely_in)
+        chat_capable = is_chat_model(fit.model)
+        can_run = compatible and on_disk and fit.fit_level != FitLevel.TOO_TIGHT and chat_capable
         self._run_btn.setEnabled(can_run)
-        self._run_btn.setToolTip(
-            "Chat with this model"
-            if can_run
-            else incompatible_hint
-            if not compatible
-            else "Install the model first via Download"
-        )
+        if can_run:
+            run_hint = "Chat with this model"
+            if likely_in and not installed_in:
+                run_hint = f"Chat with the installed model ({engine_ids.get(likely_in[0], '?')})"
+        elif not compatible:
+            run_hint = incompatible_hint
+        elif not chat_capable:
+            run_hint = "This is an embedding model — it cannot hold a chat"
+        else:
+            run_hint = "Install the model first via Download"
+        self._run_btn.setToolTip(run_hint)
 
         c = self._theme
         model = fit.model
@@ -379,9 +387,12 @@ class DetailPanel(QWidget):
                 f'<span style="color:{c.fg_muted};"> — {model.format.upper()} '
                 "won't run locally; use the GGUF version of this model</span>"
             )
-        installed_in = getattr(fit, "installed_providers", []) or []
         if installed_in:
             installed_html = f'<span style="color:{c.good};">{", ".join(installed_in)}</span>'
+        elif likely_in:
+            # The names differ, so name the id that would actually be run.
+            pairs = ", ".join(f"{name} (id: {engine_ids.get(name, '?')})" for name in likely_in)
+            installed_html = f'<span style="color:{c.warning};">Probably {pairs}</span>'
         else:
             installed_html = f'<span style="color:{c.fg_muted};">Not installed</span>'
 

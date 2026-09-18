@@ -5,6 +5,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ## [Unreleased]
+### Fixed
+- **Kurulu-model eşleştirmesi**: katalog adı ile motorun kendi model id'si arasındaki fark artık kayboluyor. `models.match_installed_ids` iki geçişli çalışıyor — birebir eşleşen giriş motor id'sini "sahiplenir", artakalan id'leri kapsama (subset) eşleşmesi alır ve "muhtemelen kurulu" olarak işaretlenir. Böylece `DeepSeek-R1-Distill-Qwen-7B` ↔ `deepseek-r1:7b` gibi adlar ve `nomic-embed-text-v1.5` ↔ `nomic-embed-text:latest` gibi boyut token'ı olmayan adlar görünür; `gemma-2-2b-jpn-it` ise `gemma2:2b`'yi çalmaya devam edemez (v0.1.14 koruması korunuyor).
+- **Embedding modelleri artık sohbet için sunulmuyor**: `models.is_chat_model` ile Run yolu (detay paneli, sağ tık menüsü, `_on_run_requested`) kapatıldı; "Runs" trafik ışığı bu modellerde "No chat" diyor ve analiz notu nedenini yazıyor. Önceden bir embedder kuruluysa Run açılıp motor tarafında hata veriyordu.
+
+### Added
+- Muhtemel kurulum ayrı bir durum olarak gösteriliyor: detay panelinde "Probably Ollama (id: …)", "Installed" filtresi ve "kurulu önce" sıralaması bu modelleri de kapsıyor; Run hangi motor id'sini çalıştıracağını tooltip'te yazıyor.
 
 ## [0.1.30] - 2026-09-18
 ### Changed

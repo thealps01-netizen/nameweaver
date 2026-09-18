@@ -290,6 +290,85 @@ def name_matches_installed(catalog_name: str, installed_names) -> bool:
     return any(_names_match(catalog_name, inst) for inst in installed_names)
 
 
+def _names_match_likely(a: str, b: str) -> bool:
+    """Whether two names *probably* mean the same model.
+
+    Same size token, and one side's identity tokens are a subset of the other's —
+    i.e. one name simply carries extra qualifiers ('DeepSeek-R1-Distill-Qwen-7B'
+    against the engine's 'deepseek-r1:7b'). Deliberately weaker than
+    ``_names_match``, and only consulted for an engine id that no catalog entry
+    matched exactly (see ``match_installed_ids``), so a fuzzy pairing can never
+    take a model away from the row that owns it exactly: 'gemma2:2b' stays with
+    'gemma-2-2b' and never drifts onto 'gemma-2-2b-jpn-it'.
+    """
+    a_size, a_toks = _core_tokens(a)
+    b_size, b_toks = _core_tokens(b)
+    if not a_toks or not b_toks:
+        return False
+    if a_size and b_size and a_size != b_size:
+        return False
+    return a_toks <= b_toks or b_toks <= a_toks
+
+
+def name_matches_likely(catalog_name: str, installed_names) -> bool:
+    """Whether a catalog model probably is one of the engine's installed models."""
+    return any(_names_match_likely(catalog_name, inst) for inst in installed_names)
+
+
+def match_installed_ids(catalog_names: list[str], installed_ids) -> dict[str, tuple[str, str]]:
+    """Map catalog name -> (the engine's own model id, 'exact' | 'likely').
+
+    Two passes over one engine's model list. Pass 1 pairs on ``_names_match`` and
+    claims those ids; pass 2 only looks at ids nobody claimed. That ordering is
+    the whole point: an entry whose name carries extra qualifiers can pick up a
+    leftover id, while the entry that owns an id exactly always keeps it.
+    """
+    ids = list(dict.fromkeys(installed_ids))  # dedupe, keep the engine's order
+    exact_ids: set[str] = set()
+    taken: set[str] = set()
+    out: dict[str, tuple[str, str]] = {}
+
+    # Pass 1: exact token matches. Several catalog spellings of the same model
+    # ("Qwen2.5-7B" and "Qwen2.5-7B-Instruct") may share one engine id — they are
+    # the same model, and hiding one of them would be the same false negative.
+    for cat in catalog_names:
+        for inst in ids:
+            if _names_match(cat, inst):
+                out[cat] = (inst, "exact")
+                exact_ids.add(inst)
+                break
+
+    # Pass 2: leftover ids only. An id with an exact owner is off-limits, which
+    # is what stops a variant row ('gemma-2-2b-jpn-it') from claiming the base
+    # model's id, and each leftover id is handed out once.
+    for cat in catalog_names:
+        if cat in out:
+            continue
+        for inst in ids:
+            if inst not in exact_ids and inst not in taken and _names_match_likely(cat, inst):
+                out[cat] = (inst, "likely")
+                taken.add(inst)
+                break
+
+    return out
+
+
+def is_chat_model(model) -> bool:
+    """Whether a chat UI can talk to this model at all.
+
+    Embedding models are legitimate catalog entries and the engines list them,
+    but a chat request against one fails on the engine side. Every Run entry
+    point asks this first, so the app never offers a conversation that cannot
+    happen.
+    """
+    raw = getattr(model, "use_case", "") or ""
+    value = getattr(raw, "value", raw)
+    if str(value).strip().lower() == UseCase.EMBEDDING.value:
+        return False
+    caps = [str(c).lower() for c in (getattr(model, "capabilities", []) or [])]
+    return not any("embedding" in c or "sentence-similarity" in c for c in caps)
+
+
 # ---------------------------------------------------------------------------
 # Quantization lookup tables
 # ---------------------------------------------------------------------------

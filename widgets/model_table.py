@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 
 from models import (
     SUPPORTED_FORMATS,
+    is_chat_model,
     is_engine_compatible,
     is_reupload,
     is_trusted_source,
@@ -483,9 +484,14 @@ class ModelFilterProxy(QSortFilterProxyModel):
             if self._capability not in caps_lower:
                 return False
 
-        # Installed-only toggle
-        if self._installed_only and not getattr(fit, "installed", False):
-            return False
+        # Installed-only toggle: an exact install or a probable one both mean the
+        # model is on disk, so both belong in "my models".
+        if self._installed_only:
+            on_disk = bool(
+                getattr(fit, "installed", False) or (getattr(fit, "likely_providers", []) or [])
+            )
+            if not on_disk:
+                return False
 
         # Min TPS filter — hide too-slow models
         if self._min_tps > 0 and fit.estimated_tps < self._min_tps:
@@ -590,9 +596,18 @@ class ModelTableView(QTableView):
         menu.addAction(download_action)
 
         run_action = QAction("Run (Chat)…", self)
-        can_run = (
-            compatible and getattr(fit, "installed", False) and fit.fit_level != FitLevel.TOO_TIGHT
+        on_disk = bool(
+            (getattr(fit, "installed_providers", []) or [])
+            or (getattr(fit, "likely_providers", []) or [])
         )
+        can_run = (
+            compatible
+            and on_disk
+            and fit.fit_level != FitLevel.TOO_TIGHT
+            and is_chat_model(fit.model)
+        )
+        if not is_chat_model(fit.model):
+            run_action.setToolTip("This is an embedding model — it cannot hold a chat")
         run_action.setEnabled(can_run)
         run_action.triggered.connect(lambda: self.run_requested.emit(fit))
         menu.addAction(run_action)

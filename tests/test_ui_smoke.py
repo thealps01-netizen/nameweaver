@@ -76,9 +76,14 @@ def test_detail_panel_renders_and_clears_a_fit(qtbot, sample_specs, small_model)
     assert panel._run_btn.isEnabled() is False
     assert panel._run_btn.toolTip() == "Install the model first via Download"
 
+    # Detection fills the provider list alongside the flag, and the panel reads
+    # the list (widgets/detail_panel.py).
     fit.installed = True
+    fit.installed_providers = ["Ollama"]
+    fit.engine_ids = {"Ollama": "testmodel3b:latest"}
     panel.show_model(fit)
     assert panel._run_btn.isEnabled() is True
+    assert panel._run_btn.toolTip() == "Chat with this model"
 
     panel.show_model(None)
     assert panel._score_label.text() == ""
@@ -368,3 +373,65 @@ def test_main_window_boots_and_scores_the_catalog(qtbot, monkeypatch, sample_spe
     assert window._specs is sample_specs
     assert window._table_view.horizontalHeader().sortIndicatorSection() == SCORE_COLUMN
     assert window._status_bar is not None
+
+
+def test_detail_panel_keeps_run_off_for_an_embedding_model(qtbot, sample_specs, small_model):
+    """Installed, runnable format — and still nothing to chat with."""
+    small_model.use_case = "embedding"
+    fit = _fit(small_model, sample_specs)
+    fit.installed = True
+    fit.installed_providers = ["Ollama"]
+    panel = DetailPanel()
+    qtbot.addWidget(panel)
+
+    panel.show_model(fit)
+
+    assert panel._run_btn.isEnabled() is False
+    assert "embedding" in panel._run_btn.toolTip().lower()
+    # analyze() puts the reason where the panel shows notes.
+    assert "embedding" in panel._notes_label.text().lower()
+
+
+def test_detail_panel_runs_a_probable_engine_match_and_names_the_id(
+    qtbot, sample_specs, small_model
+):
+    """Names that differ by qualifiers still give a runnable row."""
+    fit = _fit(small_model, sample_specs)
+    fit.likely_providers = ["Ollama"]
+    fit.engine_ids = {"Ollama": "testmodel3b:latest"}
+    panel = DetailPanel()
+    qtbot.addWidget(panel)
+
+    panel.show_model(fit)
+
+    assert panel._run_btn.isEnabled() is True
+    assert "testmodel3b:latest" in panel._run_btn.toolTip()
+    assert "Probably" in panel._details_label.text()
+    assert "testmodel3b:latest" in panel._details_label.text()
+
+
+def test_installed_filter_counts_a_probable_match(qtbot, sample_specs, small_model):
+    from models import LlmModel
+    from widgets.model_table import ModelFilterProxy, ModelTableModel
+
+    exact = _fit(small_model, sample_specs)
+    exact.installed = True
+    exact.installed_providers = ["Ollama"]
+
+    probable = _fit(LlmModel(name="Probable-7B", use_case="general", format="gguf"), sample_specs)
+    probable.likely_providers = ["Ollama"]
+
+    foreign = _fit(LlmModel(name="Foreign-7B", use_case="general", format="gguf"), sample_specs)
+
+    source = ModelTableModel()
+    source.set_data([exact, probable, foreign])
+    proxy = ModelFilterProxy()
+    proxy.setSourceModel(source)
+
+    proxy.set_filters(installed_only=True)
+
+    kept = [
+        source.get_fit(proxy.mapToSource(proxy.index(row, 0)).row()).model.name
+        for row in range(proxy.rowCount())
+    ]
+    assert sorted(kept) == ["Probable-7B", "TestModel-3B"]

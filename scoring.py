@@ -15,6 +15,7 @@ from models import (
     QUANT_SPEED_MULT,
     LlmModel,
     UseCase,
+    is_chat_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,10 @@ class ModelFit:
     notes: list[str] = field(default_factory=list)
     installed: bool = False
     installed_providers: list[str] = field(default_factory=list)  # engines that have it
+    # Engines whose own model id only *probably* is this catalog entry (the names
+    # differ by qualifiers, e.g. 'deepseek-r1:7b' vs 'DeepSeek-R1-Distill-Qwen-7B').
+    likely_providers: list[str] = field(default_factory=list)
+    engine_ids: dict[str, str] = field(default_factory=dict)  # engine -> its own model id
 
     @classmethod
     def analyze(
@@ -119,6 +124,13 @@ class ModelFit:
         speed (0.0); 0.5 uses the use-case defaults unchanged.
         """
         result = cls(model=model)
+
+        # Chat-only app: an embedding model can be downloaded and loaded, but no
+        # engine will hold a conversation with it.
+        if not is_chat_model(model):
+            result.notes.append(
+                "Embedding model — engines can embed text with it, but it cannot hold a chat."
+            )
 
         ctx = context_limit or model.ctx_length
 
@@ -468,6 +480,8 @@ def runnability(fit: "ModelFit") -> tuple[str, str]:
 
     if not is_engine_compatible(fit.model.format):
         return ("No engine", "red")
+    if not is_chat_model(fit.model):
+        return ("No chat", "red")
     if fit.fit_level == FitLevel.TOO_TIGHT:
         return ("Won't fit", "red")
     if (
@@ -655,8 +669,10 @@ def rank_models(
         # Third key is a float for the numeric columns (negated, so descending)
         # and a str for the text ones (release date / use case / provider).
         val: float | str
-        # Primary: installed models first (if enabled)
-        installed = 0 if (installed_first and mf.installed) else 1
+        # Primary: models already on disk first — an exact install and a probable
+        # one both count, since both mean the files are there.
+        mine = bool(mf.installed or mf.installed_providers or mf.likely_providers)
+        installed = 0 if (installed_first and mine) else 1
         # Secondary: TOO_TIGHT always last
         tight = 1 if mf.fit_level == FitLevel.TOO_TIGHT else 0
 

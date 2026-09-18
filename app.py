@@ -47,7 +47,6 @@ from models import (
     is_reupload,
     is_trusted_source,
     load_all_models,
-    name_matches_installed,
 )
 from providers import ProviderState, ProviderStatus
 from scoring import ModelFit
@@ -1350,15 +1349,33 @@ class MainWindow(QMainWindow):
             "Providers: %d available (%s)", len(available), ", ".join(p.name for p in available)
         )
 
-        # Mark installed models, tracking which engine(s) hold each one.
+        # Mark installed models: which engine(s) hold each one, and under which
+        # id. Two passes per engine (models.match_installed_ids) so exact matches
+        # claim their id before any fuzzy pairing gets a chance at it.
+        from models import match_installed_ids
+
+        catalog_names = [fit.model.name for fit in self._fits]
         for fit in self._fits:
-            provs = [
-                p.name
-                for p in providers
-                if name_matches_installed(fit.model.name, p.installed_models or set())
-            ]
-            fit.installed_providers = provs
-            fit.installed = bool(provs)
+            fit.installed_providers = []
+            fit.likely_providers = []
+            fit.engine_ids = {}
+        for det in providers:
+            engine_models = set(getattr(det, "installed_models", set()) or set())
+            if not engine_models:
+                continue
+            matches = match_installed_ids(catalog_names, engine_models)
+            for fit in self._fits:
+                hit = matches.get(fit.model.name)
+                if hit is None:
+                    continue
+                engine_id, kind = hit
+                fit.engine_ids[det.name] = engine_id
+                if kind == "exact":
+                    fit.installed_providers.append(det.name)
+                else:
+                    fit.likely_providers.append(det.name)
+        for fit in self._fits:
+            fit.installed = bool(fit.installed_providers)
 
         # Refresh table if scoring is already done
         if self._fits:
@@ -2080,25 +2097,30 @@ class MainWindow(QMainWindow):
 
     def _on_run_requested(self, fit: ModelFit):
         """User clicked Run — open chat dialog against the engine that has it."""
-        from models import name_matches_installed
-        from runner import installed_model_ids
+        from models import is_chat_model
 
         model = fit.model
 
-        def _has(p) -> bool:
-            return name_matches_installed(
-                model.name, getattr(p, "installed_models", set()) or set()
+        if not is_chat_model(model):
+            QMessageBox.information(
+                self,
+                "Embedding model",
+                f"'{model.name}' is an embedding model — the engines can embed text "
+                "with it, but it cannot hold a chat.",
             )
+            return
+
+        # What the table already shows: exact installs, plus the engines whose own
+        # model id only probably is this entry (both carry a usable id).
+        mine = list(fit.installed_providers) + [
+            n for n in fit.likely_providers if n not in fit.installed_providers
+        ]
 
         # Only engines that actually have this model AND are running are
         # selectable — never offer an engine that would just 404.
-        matched_running = [
-            p.name for p in self._providers if getattr(p, "available", False) and _has(p)
-        ]
+        matched_running = [p.name for p in self._providers if p.available and p.name in mine]
         # Engines that have the model but whose server is off.
-        have_offline = [
-            p.name for p in self._providers if not getattr(p, "available", False) and _has(p)
-        ]
+        have_offline = [p.name for p in self._providers if not p.available and p.name in mine]
 
         if not matched_running and have_offline:
             eng = have_offline[0]
@@ -2122,8 +2144,9 @@ class MainWindow(QMainWindow):
         providers = matched_running
 
         # Resolve the real engine-side model id per provider (avoids 404s from
-        # sending the catalog name). Ollama falls back to a generated tag.
-        ids = installed_model_ids(model.name, self._providers)
+        # sending the catalog name). The engine's own id came from detection;
+        # Ollama falls back to a generated tag.
+        ids = dict(fit.engine_ids)
         model_ids: dict[str, str] = {}
         for pname in providers:
             if pname in ids:

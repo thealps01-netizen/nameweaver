@@ -486,3 +486,70 @@ class TestFitLevels:
         m = LlmModel(name="Huge", parameter_count="200B", ctx_length=4096)
         fit = ModelFit.analyze(m, low_end_specs)
         assert fit.fit_level == FitLevel.TOO_TIGHT
+
+
+class TestEmbeddingModels:
+    """Engines embed with these; there is no conversation to offer."""
+
+    def test_runnability_reports_no_chat(self):
+        from models import LlmModel
+        from scoring import runnability
+
+        embedder = ModelFit(
+            model=LlmModel(name="nomic-embed-text", use_case="embedding", format="gguf"),
+            fit_level=FitLevel.PERFECT,
+            run_mode=RunMode.GPU,
+        )
+
+        assert runnability(embedder) == ("No chat", "red")
+
+    def test_analyze_explains_why(self, sample_specs):
+        from models import LlmModel
+
+        embedder = LlmModel(
+            name="nomic-embed-text",
+            provider="Nomic",
+            parameter_count="137M",
+            format="gguf",
+            quantization="Q4_K_M",
+            ctx_length=2048,
+            use_case="embedding",
+        )
+
+        fit = ModelFit.analyze(embedder, sample_specs, context_limit=2048)
+
+        assert any("embedding" in note.lower() for note in fit.notes)
+
+
+class TestRankingCountsProbableInstalls:
+    def test_a_probable_install_sorts_with_the_installed_ones(self):
+        from models import LlmModel
+        from scoring import rank_models
+
+        exact = ModelFit(
+            model=LlmModel(name="exact"),
+            fit_level=FitLevel.GOOD,
+            run_mode=RunMode.GPU,
+            score=50.0,
+        )
+        exact.installed = True
+        exact.installed_providers = ["Ollama"]
+
+        probable = ModelFit(
+            model=LlmModel(name="probable"),
+            fit_level=FitLevel.GOOD,
+            run_mode=RunMode.GPU,
+            score=40.0,
+        )
+        probable.likely_providers = ["Ollama"]
+
+        elsewhere = ModelFit(
+            model=LlmModel(name="elsewhere"),
+            fit_level=FitLevel.GOOD,
+            run_mode=RunMode.GPU,
+            score=99.0,
+        )
+
+        order = [f.model.name for f in rank_models([elsewhere, probable, exact])]
+
+        assert order == ["exact", "probable", "elsewhere"]
