@@ -136,16 +136,12 @@ def setup_logging(level: int = logging.INFO) -> None:
     file_handler = RotatingFileHandler(
         log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
     )
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
-    )
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
     root.addHandler(file_handler)
 
     # Stderr handler
     stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setFormatter(
-        logging.Formatter("%(levelname)s %(name)s: %(message)s")
-    )
+    stderr_handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
     root.addHandler(stderr_handler)
 
     logger.info("Logging initialized — log file: %s", log_file)

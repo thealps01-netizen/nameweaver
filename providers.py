@@ -30,9 +30,9 @@ TIMEOUT_SECONDS = 0.8  # Match llmfit's 800ms timeout
 class ProviderState(Enum):
     """Three-state lifecycle for a local inference provider."""
 
-    NOT_INSTALLED = "not_installed"   # No binary / app on disk
-    INSTALLED_OFF = "installed_off"   # Installed but service/server not answering
-    READY = "ready"                   # HTTP probe succeeded
+    NOT_INSTALLED = "not_installed"  # No binary / app on disk
+    INSTALLED_OFF = "installed_off"  # Installed but service/server not answering
+    READY = "ready"  # HTTP probe succeeded
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -62,8 +62,8 @@ class ProviderStatus:
     available: bool = False
     state: ProviderState = ProviderState.NOT_INSTALLED
     installed_models: set[str] = field(default_factory=set)
-    install_hint: str = ""      # URL to installer page or CLI command
-    start_action: str = ""      # UI action key: "start_ollama" / "start_lmstudio" / ""
+    install_hint: str = ""  # URL to installer page or CLI command
+    start_action: str = ""  # UI action key: "start_ollama" / "start_lmstudio" / ""
     # UI action key: "stop_ollama" / "stop_lmstudio" / "" — only set when READY
     stop_action: str = ""
 
@@ -94,8 +94,7 @@ def _ollama_is_installed() -> bool:
             base = os.environ.get(base_env)
             if not base:
                 continue
-            for rel in (("Ollama", "ollama.exe"),
-                        ("Programs", "Ollama", "ollama.exe")):
+            for rel in (("Ollama", "ollama.exe"), ("Programs", "Ollama", "ollama.exe")):
                 if (Path(base).joinpath(*rel)).exists():
                     return True
     elif sys.platform == "darwin":
@@ -113,8 +112,7 @@ def _lmstudio_is_installed() -> bool:
             base = os.environ.get(base_env)
             if not base:
                 continue
-            for rel in (("LM Studio", "LM Studio.exe"),
-                        ("Programs", "LM Studio", "LM Studio.exe")):
+            for rel in (("LM Studio", "LM Studio.exe"), ("Programs", "LM Studio", "LM Studio.exe")):
                 if (Path(base).joinpath(*rel)).exists():
                     return True
     elif sys.platform == "darwin":
@@ -213,8 +211,8 @@ def _scan_lmstudio_disk_models() -> set[str]:
     try:
         if base.is_dir():
             for gguf in base.rglob("*.gguf"):
-                names.add(gguf.stem)          # file name (e.g. Model-Q4_K_M)
-                names.add(gguf.parent.name)   # repo folder
+                names.add(gguf.stem)  # file name (e.g. Model-Q4_K_M)
+                names.add(gguf.parent.name)  # repo folder
                 try:
                     rel = gguf.parent.relative_to(base)
                     names.add(str(rel).replace("\\", "/"))  # publisher/repo id

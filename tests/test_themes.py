@@ -7,7 +7,12 @@ class TestThemeRegistry:
     def test_six_themes(self):
         assert len(THEMES) == 6
         assert set(THEMES.keys()) == {
-            "dark", "light", "dracula", "nord", "gruvbox", "solarized",
+            "dark",
+            "light",
+            "dracula",
+            "nord",
+            "gruvbox",
+            "solarized",
         }
 
     def test_all_themes_have_labels(self):

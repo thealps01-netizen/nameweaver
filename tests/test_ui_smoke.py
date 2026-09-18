@@ -241,9 +241,7 @@ def _installer(tmp_path, payload: bytes):
 def test_installer_downloader_refuses_a_bad_checksum(qtbot, tmp_path):
     installer = _installer(tmp_path, b"pretend installer")
     sidecar = tmp_path / "Nameweaver_Setup.exe.sha256"
-    sidecar.write_text(
-        hashlib.sha256(b"a different file").hexdigest() + "  Nameweaver_Setup.exe\n"
-    )
+    sidecar.write_text(hashlib.sha256(b"a different file").hexdigest() + "  Nameweaver_Setup.exe\n")
 
     downloader = updater_module.InstallerDownloader(installer.as_uri())
     errors, finished = [], []
@@ -364,9 +362,7 @@ def test_main_window_boots_and_scores_the_catalog(qtbot, monkeypatch, sample_spe
     assert window._models, "embedded catalog data/models.json did not load"
 
     window._on_hardware_detected(sample_specs)
-    qtbot.waitUntil(
-        lambda: window._table_model.rowCount() == len(window._models), timeout=30_000
-    )
+    qtbot.waitUntil(lambda: window._table_model.rowCount() == len(window._models), timeout=30_000)
 
     assert len(window._fits) == len(window._models)
     assert window._specs is sample_specs

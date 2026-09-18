@@ -145,8 +145,10 @@ def _run_openai_compatible(
                 return
     except urllib.error.HTTPError as exc:
         if exc.code == 400 and any(isinstance(m.get("content"), list) for m in messages):
-            yield ("\n[This model can't read images. Use a vision model such as "
-                   "qwen2.5vl, llava or gemma3-vision.]")
+            yield (
+                "\n[This model can't read images. Use a vision model such as "
+                "qwen2.5vl, llava or gemma3-vision.]"
+            )
         else:
             logger.error("OpenAI-compat HTTP error (%s): %s", url, exc)
             yield f"\n[error: {exc}]"
@@ -210,10 +212,12 @@ def _to_openai_messages(messages: list[dict]) -> list[dict]:
         if imgs:
             content = [{"type": "text", "text": m.get("content", "")}]
             for b64 in imgs:
-                content.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
-                })
+                content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+                    }
+                )
             out.append({"role": m.get("role", "user"), "content": content})
         else:
             out.append({"role": m.get("role", "user"), "content": m.get("content", "")})
@@ -245,8 +249,10 @@ def chat_ollama(
                 return
     except urllib.error.HTTPError as exc:
         if exc.code == 400 and any(m.get("images") for m in messages):
-            yield ("\n[This model can't read images. Use a vision model such as "
-                   "qwen2.5vl, llava or gemma3-vision.]")
+            yield (
+                "\n[This model can't read images. Use a vision model such as "
+                "qwen2.5vl, llava or gemma3-vision.]"
+            )
         else:
             logger.error("Ollama chat HTTP error: %s", exc)
             yield f"\n[error: {exc}]"

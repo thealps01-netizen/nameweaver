@@ -206,7 +206,9 @@ def download_gguf(
             if digest.lower() != expected_sha256.lower():
                 logger.error(
                     "SHA256 mismatch for %s: expected %s, got %s",
-                    filename, expected_sha256, digest,
+                    filename,
+                    expected_sha256,
+                    digest,
                 )
                 emit(0, "SHA256 verification failed")
                 try:

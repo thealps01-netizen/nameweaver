@@ -26,7 +26,7 @@ def split_segments(text: str) -> list[tuple[str, str, str]]:
     pos = 0
     for m in _FENCE.finditer(text):
         if m.start() > pos:
-            segments.append(("text", text[pos:m.start()], ""))
+            segments.append(("text", text[pos : m.start()], ""))
         segments.append(("code", m.group(2), (m.group(1) or "").strip()))
         pos = m.end()
     rest = text[pos:]
@@ -35,7 +35,7 @@ def split_segments(text: str) -> list[tuple[str, str, str]]:
     if open_fence != -1:
         if open_fence > 0:
             segments.append(("text", rest[:open_fence], ""))
-        after = rest[open_fence + 3:]
+        after = rest[open_fence + 3 :]
         lang, _, code = after.partition("\n")
         segments.append(("code", code, lang.strip()))
     elif rest:
@@ -52,12 +52,10 @@ def _inline(s: str) -> str:
         return f"\x00{len(stash) - 1}\x00"
 
     # inline code first (its contents must not be further formatted)
-    s = re.sub(r"`([^`\n]+)`",
-               lambda m: _keep(f"<code>{html.escape(m.group(1))}</code>"), s)
+    s = re.sub(r"`([^`\n]+)`", lambda m: _keep(f"<code>{html.escape(m.group(1))}</code>"), s)
     s = html.escape(s)
     # links [text](url)
-    s = re.sub(r"\[([^\]]+)\]\((https?://[^\s)]+)\)",
-               r'<a href="\2">\1</a>', s)
+    s = re.sub(r"\[([^\]]+)\]\((https?://[^\s)]+)\)", r'<a href="\2">\1</a>', s)
     s = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", s)
     s = re.sub(r"__([^_]+)__", r"<b>\1</b>", s)
     s = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"<i>\1</i>", s)
@@ -104,8 +102,9 @@ def md_to_html(text: str) -> str:
         m = re.match(r"^(#{1,6})\s+(.*)$", line)
         if m:
             size = max(12, 20 - (len(m.group(1)) - 1) * 2)
-            out.append(f'<div style="font-weight:700; font-size:{size}px;">'
-                       f'{_inline(m.group(2))}</div>')
+            out.append(
+                f'<div style="font-weight:700; font-size:{size}px;">{_inline(m.group(2))}</div>'
+            )
             i += 1
             continue
 
@@ -115,9 +114,10 @@ def md_to_html(text: str) -> str:
             while i < n and lines[i].lstrip().startswith(">"):
                 quote.append(_inline(lines[i].lstrip()[1:].lstrip()))
                 i += 1
-            out.append('<blockquote style="border-left:3px solid #8888;'
-                       ' margin:4px 0; padding-left:8px;">'
-                       + "<br>".join(quote) + "</blockquote>")
+            out.append(
+                '<blockquote style="border-left:3px solid #8888;'
+                ' margin:4px 0; padding-left:8px;">' + "<br>".join(quote) + "</blockquote>"
+            )
             continue
 
         # Unordered list
@@ -147,9 +147,12 @@ def md_to_html(text: str) -> str:
 
         # Paragraph: gather consecutive plain lines.
         para = []
-        while i < n and lines[i].strip() and not re.match(
-            r"^(#{1,6}\s|>|\s*[-*+]\s|\s*\d+\.\s)", lines[i]
-        ) and not ("|" in lines[i] and i + 1 < n and _TABLE_SEP.match(lines[i + 1])):
+        while (
+            i < n
+            and lines[i].strip()
+            and not re.match(r"^(#{1,6}\s|>|\s*[-*+]\s|\s*\d+\.\s)", lines[i])
+            and not ("|" in lines[i] and i + 1 < n and _TABLE_SEP.match(lines[i + 1]))
+        ):
             para.append(_inline(lines[i]))
             i += 1
         out.append("<div>" + "<br>".join(para) + "</div>")

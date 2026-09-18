@@ -50,15 +50,15 @@ _active: list = []
 # Self-contained: stored in its own small JSON file so the updater does not
 # depend on the app's config schema (cfg.AppConfig).
 
+
 def _skip_store_path() -> str:
     """Path to the JSON file tracking the user's skipped version."""
     try:
         from cfg import config_dir
+
         base = str(config_dir())
     except Exception:
-        base = os.path.join(
-            os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Nameweaver"
-        )
+        base = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Nameweaver")
     os.makedirs(base, exist_ok=True)
     return os.path.join(base, "update_skip.json")
 
@@ -81,6 +81,7 @@ def _set_skipped_version(tag: str) -> None:
 
 # ── Version comparison ─────────────────────────────────────────────────────────
 
+
 def _parse(tag: str) -> tuple[int, ...]:
     """'v1.2.3' → (1, 2, 3)"""
     nums = re.findall(r"\d+", tag)
@@ -94,7 +95,7 @@ def _is_newer(remote_tag: str, current: str = __version__) -> bool:
 # ── GitHub API fetch ───────────────────────────────────────────────────────────
 
 GITHUB_API = "https://api.github.com/repos/{owner}/{repo}/releases/latest"
-TIMEOUT    = 8   # seconds
+TIMEOUT = 8  # seconds
 
 
 def _fetch_latest(owner: str, repo: str) -> dict | None:
@@ -102,7 +103,7 @@ def _fetch_latest(owner: str, repo: str) -> dict | None:
     req = urllib.request.Request(
         url,
         headers={
-            "Accept":     "application/vnd.github+json",
+            "Accept": "application/vnd.github+json",
             "User-Agent": f"Nameweaver-Updater/{__version__}",
         },
     )
@@ -129,6 +130,7 @@ def _find_installer_asset(release: dict) -> str | None:
 
 # ── Background checker ─────────────────────────────────────────────────────────
 
+
 class UpdateChecker(QObject):
     """Runs a single version check on a background QThread.
 
@@ -139,13 +141,13 @@ class UpdateChecker(QObject):
     """
 
     update_available = pyqtSignal(str, str, str)  # (tag, download_url, notes)
-    no_update        = pyqtSignal()
-    check_failed     = pyqtSignal()
+    no_update = pyqtSignal()
+    check_failed = pyqtSignal()
 
     def __init__(self, owner: str, repo: str, parent=None):
         super().__init__()
         self._owner = owner
-        self._repo  = repo
+        self._repo = repo
         self._thread = QThread()
         self.moveToThread(self._thread)
         self._thread.started.connect(self._run)
@@ -155,8 +157,7 @@ class UpdateChecker(QObject):
         self._thread.start()
 
     def _run(self) -> None:
-        _log.debug("Checking for updates (%s/%s, current=%s)",
-                   self._owner, self._repo, __version__)
+        _log.debug("Checking for updates (%s/%s, current=%s)", self._owner, self._repo, __version__)
 
         skipped = _get_skipped_version()
 
@@ -169,7 +170,7 @@ class UpdateChecker(QObject):
                 _log.debug("Version %s skipped by user.", tag)
                 self.no_update.emit()
             elif _is_newer(tag):
-                url   = _find_installer_asset(release)
+                url = _find_installer_asset(release)
                 notes = release.get("body", "") or ""
                 if url:
                     _log.info("Update available: %s (asset: %s)", tag, url)
@@ -185,16 +186,17 @@ class UpdateChecker(QObject):
 
 # ── Download + launch installer ────────────────────────────────────────────────
 
+
 class InstallerDownloader(QObject):
     """Downloads the installer to a temp file then runs it."""
 
-    progress = pyqtSignal(int)    # 0-100
-    finished = pyqtSignal(str)    # path to downloaded installer
-    error    = pyqtSignal(str)
+    progress = pyqtSignal(int)  # 0-100
+    finished = pyqtSignal(str)  # path to downloaded installer
+    error = pyqtSignal(str)
 
     def __init__(self, url: str, parent=None):
         super().__init__()
-        self._url    = url
+        self._url = url
         self._thread = QThread()
         self.moveToThread(self._thread)
         self._thread.started.connect(self._run)
@@ -204,9 +206,9 @@ class InstallerDownloader(QObject):
 
     def _run(self) -> None:
         try:
-            suffix  = os.path.basename(self._url.split("?")[0]) or "Nameweaver_Setup.exe"
+            suffix = os.path.basename(self._url.split("?")[0]) or "Nameweaver_Setup.exe"
             tmp_dir = tempfile.mkdtemp(prefix="nameweaver_update_")
-            dest    = os.path.join(tmp_dir, suffix)
+            dest = os.path.join(tmp_dir, suffix)
             _log.info("Downloading update from %s → %s", self._url, dest)
 
             def _reporthook(block, block_size, total):
@@ -257,9 +259,11 @@ class InstallerDownloader(QObject):
 
 # ── Reusable UI helpers ────────────────────────────────────────────────────────
 
+
 class _Panel(QWidget):
     """Opaque rounded dark panel — reliable background on WA_TranslucentBackground."""
-    BG     = QColor("#141420")
+
+    BG = QColor("#141420")
     BORDER = QColor("#2a2a45")
     RADIUS = 10.0
 
@@ -296,7 +300,7 @@ class _DraggableDialog(QDialog):
     def _center_on_screen(self):
         screen = QApplication.primaryScreen().availableGeometry()
         self.move(
-            screen.x() + (screen.width()  - self.width())  // 2,
+            screen.x() + (screen.width() - self.width()) // 2,
             screen.y() + (screen.height() - self.height()) // 2,
         )
 
@@ -385,13 +389,13 @@ class UpdateDialog(_DraggableDialog):
     """Modern dark-themed update dialog."""
 
     # result codes
-    SKIP  = 2
+    SKIP = 2
     UPDATE = 1
-    LATER  = 0
+    LATER = 0
 
     def __init__(self, tag: str, notes: str, parent=None):
         super().__init__(parent)
-        self._tag   = tag
+        self._tag = tag
         self._choice = self.LATER
 
         self.setWindowTitle("Nameweaver — Update Available")
@@ -552,6 +556,7 @@ class DownloadProgressDialog(_DraggableDialog):
 
 # ── Download error dialog ─────────────────────────────────────────────────────
 
+
 def _friendly_error(raw: str) -> tuple[str, str]:
     """Return (title, body) user-friendly message from a raw exception string."""
     r = raw.lower()
@@ -564,14 +569,12 @@ def _friendly_error(raw: str) -> tuple[str, str]:
     if "timed out" in r or "timeout" in r:
         return (
             "Connection Timed Out",
-            "The update server took too long to respond.\n"
-            "Please try again in a moment.",
+            "The update server took too long to respond.\nPlease try again in a moment.",
         )
     if "connection refused" in r:
         return (
             "Connection Refused",
-            "The update server refused the connection.\n"
-            "Please try again later.",
+            "The update server refused the connection.\nPlease try again later.",
         )
     if "ssl" in r or "certificate" in r:
         return (
@@ -581,8 +584,7 @@ def _friendly_error(raw: str) -> tuple[str, str]:
         )
     return (
         "Download Failed",
-        "An error occurred while downloading the update.\n"
-        "Please try again later.",
+        "An error occurred while downloading the update.\nPlease try again later.",
     )
 
 
@@ -658,6 +660,7 @@ def _show_download_error(raw: str, parent=None) -> None:
 
 # ── High-level helper called from main UI ──────────────────────────────────────
 
+
 def prompt_and_install(tag: str, download_url: str, notes: str = "", parent=None) -> None:
     """Show modern update dialog, then download & run installer if accepted."""
     dlg = UpdateDialog(tag, notes, parent)
@@ -682,7 +685,7 @@ def prompt_and_install(tag: str, download_url: str, notes: str = "", parent=None
     prog.show()
 
     downloader = InstallerDownloader(download_url)
-    _active.extend([downloader, prog])   # prevent GC while thread runs
+    _active.extend([downloader, prog])  # prevent GC while thread runs
 
     def _on_progress(pct: int):
         prog.set_progress(pct)
@@ -697,34 +700,34 @@ def prompt_and_install(tag: str, download_url: str, notes: str = "", parent=None
         # issues that plagued ShellExecuteW on 64-bit, and reliably passes args.
         class _SEI(ctypes.Structure):
             _fields_ = [
-                ("cbSize",         ctypes.c_uint32),
-                ("fMask",          ctypes.c_uint32),
-                ("hwnd",           ctypes.c_void_p),
-                ("lpVerb",         ctypes.c_wchar_p),
-                ("lpFile",         ctypes.c_wchar_p),
-                ("lpParameters",   ctypes.c_wchar_p),
-                ("lpDirectory",    ctypes.c_wchar_p),
-                ("nShow",          ctypes.c_int),
-                ("hInstApp",       ctypes.c_void_p),
-                ("lpIDList",       ctypes.c_void_p),
-                ("lpClass",        ctypes.c_wchar_p),
-                ("hkeyClass",      ctypes.c_void_p),
-                ("dwHotKey",       ctypes.c_uint32),
+                ("cbSize", ctypes.c_uint32),
+                ("fMask", ctypes.c_uint32),
+                ("hwnd", ctypes.c_void_p),
+                ("lpVerb", ctypes.c_wchar_p),
+                ("lpFile", ctypes.c_wchar_p),
+                ("lpParameters", ctypes.c_wchar_p),
+                ("lpDirectory", ctypes.c_wchar_p),
+                ("nShow", ctypes.c_int),
+                ("hInstApp", ctypes.c_void_p),
+                ("lpIDList", ctypes.c_void_p),
+                ("lpClass", ctypes.c_wchar_p),
+                ("hkeyClass", ctypes.c_void_p),
+                ("dwHotKey", ctypes.c_uint32),
                 ("hIconOrMonitor", ctypes.c_void_p),
-                ("hProcess",       ctypes.c_void_p),
+                ("hProcess", ctypes.c_void_p),
             ]
 
         sei = _SEI()
-        sei.cbSize       = ctypes.sizeof(_SEI)
-        sei.lpVerb       = "runas"
-        sei.lpFile       = path
+        sei.cbSize = ctypes.sizeof(_SEI)
+        sei.lpVerb = "runas"
+        sei.lpFile = path
         # /SILENT shows a progress window (failures are visible, unlike
         # /VERYSILENT). /FORCECLOSEAPPLICATIONS makes the installer forcibly
         # close the still-open app via Restart Manager so the files unlock and
         # the install actually completes.
         sei.lpParameters = "/SILENT /NORESTART /FORCECLOSEAPPLICATIONS"
-        sei.lpDirectory  = os.path.dirname(path)
-        sei.nShow        = 1  # SW_SHOWNORMAL (so UAC dialog is visible)
+        sei.lpDirectory = os.path.dirname(path)
+        sei.nShow = 1  # SW_SHOWNORMAL (so UAC dialog is visible)
 
         shell32 = ctypes.windll.shell32
         shell32.ShellExecuteExW.restype = ctypes.c_bool
@@ -736,6 +739,7 @@ def prompt_and_install(tag: str, download_url: str, notes: str = "", parent=None
             _log.error("ShellExecuteExW failed (err=%d) — installer not launched", err)
 
         from PyQt6.QtCore import QTimer
+
         QTimer.singleShot(
             500,
             parent._quit if parent and hasattr(parent, "_quit") else QApplication.instance().quit,

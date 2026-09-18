@@ -18,10 +18,10 @@ class GpuBackend(str, Enum):
     ROCM = "rocm"
     VULKAN = "vulkan"
     SYCL = "sycl"
-    ASCEND = "ascend"         # Huawei NPU
-    CPU_ARM = "cpu_arm"       # ARM CPU fallback
-    CPU_X86 = "cpu_x86"       # x86 CPU fallback
-    CPU_ONLY = "cpu"          # Kept for backwards compatibility
+    ASCEND = "ascend"  # Huawei NPU
+    CPU_ARM = "cpu_arm"  # ARM CPU fallback
+    CPU_X86 = "cpu_x86"  # x86 CPU fallback
+    CPU_ONLY = "cpu"  # Kept for backwards compatibility
 
 
 @dataclass
@@ -34,10 +34,10 @@ class GpuInfo:
     count: int = 1
     unified_memory: bool = False
     bandwidth_gbps: float = 0.0  # Per-GPU memory bandwidth
-    vendor: str = ""             # "NVIDIA" | "AMD" | "Intel" | "Apple" | "Huawei"
-    pci_id: str = ""             # lspci/WMI ID — for rocm-smi index mapping
-    integrated: bool = False     # iGPU flag — default-disabled in mixed setups
-    enabled: bool = True         # User selection (cfg.disabled_gpus overrides)
+    vendor: str = ""  # "NVIDIA" | "AMD" | "Intel" | "Apple" | "Huawei"
+    pci_id: str = ""  # lspci/WMI ID — for rocm-smi index mapping
+    integrated: bool = False  # iGPU flag — default-disabled in mixed setups
+    enabled: bool = True  # User selection (cfg.disabled_gpus overrides)
 
 
 @dataclass
@@ -269,8 +269,7 @@ def _is_integrated_gpu(name: str) -> bool:
         return True
     # Intel UHD/Iris/HD Graphics
     if any(
-        tag in n
-        for tag in ("intel uhd", "intel iris", "intel hd", "intel(r) uhd", "intel(r) iris")
+        tag in n for tag in ("intel uhd", "intel iris", "intel hd", "intel(r) uhd", "intel(r) iris")
     ):
         return True
     # Microsoft Basic Display
@@ -373,8 +372,12 @@ def _detect_cpu_ram(specs: SystemSpecs) -> None:
             # Try to get a better name via PowerShell
             try:
                 result = subprocess.run(
-                    ["powershell", "-NoProfile", "-Command",
-                     "(Get-CimInstance Win32_Processor).Name"],
+                    [
+                        "powershell",
+                        "-NoProfile",
+                        "-Command",
+                        "(Get-CimInstance Win32_Processor).Name",
+                    ],
                     capture_output=True,
                     text=True,
                     timeout=5,
@@ -475,9 +478,7 @@ def _query_nvidia_bandwidth(count: int) -> list[float]:
             capture_output=True,
             text=True,
             timeout=5,
-            creationflags=subprocess.CREATE_NO_WINDOW
-            if platform.system() == "Windows"
-            else 0,
+            creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0,
         )
         if result.returncode != 0:
             return []
@@ -509,9 +510,7 @@ def _detect_nvidia(specs: SystemSpecs) -> bool:
             capture_output=True,
             text=True,
             timeout=10,
-            creationflags=subprocess.CREATE_NO_WINDOW
-            if platform.system() == "Windows"
-            else 0,
+            creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0,
         )
         if result.returncode != 0:
             return False
@@ -551,7 +550,10 @@ def _detect_nvidia(specs: SystemSpecs) -> bool:
                     if table_bw <= 0 or abs(measured[i] - table_bw) / table_bw > 0.05:
                         logger.debug(
                             "GPU %d (%s) bandwidth: table=%.1f, measured=%.1f — using measured",
-                            i, gpu.name, table_bw, measured[i],
+                            i,
+                            gpu.name,
+                            table_bw,
+                            measured[i],
                         )
                         gpu.bandwidth_gbps = measured[i]
 
@@ -675,7 +677,9 @@ def _detect_windows_gpu(specs: SystemSpecs) -> None:
                 if known_vram is not None and known_vram != wmi_vram_gb:
                     logger.debug(
                         "Corrected VRAM for %s: WMI=%.1f GB -> known=%.1f GB",
-                        name, wmi_vram_gb, known_vram,
+                        name,
+                        wmi_vram_gb,
+                        known_vram,
                     )
 
                 # Detect vendor + backend from name (handles Intel Arc, Ascend, etc.)
@@ -885,6 +889,7 @@ def _try_intel_arc_sysfs(specs: SystemSpecs) -> None:
     try:
         import glob
         from pathlib import Path as _P
+
         intel_gpus = [g for g in specs.gpus if g.vendor == "Intel" and not g.integrated]
         if not intel_gpus:
             return

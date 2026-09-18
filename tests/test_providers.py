@@ -87,9 +87,7 @@ class TestDetectLmStudio:
     @patch("providers._scan_lmstudio_disk_models", return_value=set())
     @patch("providers._http_get_json")
     def test_lm_studio_available(self, mock_get, _mock_disk):
-        mock_get.return_value = {
-            "data": [{"id": "model-1"}, {"id": "model-2"}]
-        }
+        mock_get.return_value = {"data": [{"id": "model-1"}, {"id": "model-2"}]}
         status = detect_lm_studio()
         assert status.available is True
         assert status.state == ProviderState.READY
@@ -106,8 +104,7 @@ class TestDetectLmStudio:
         assert status.state == ProviderState.INSTALLED_OFF
         assert status.start_action == "start_lmstudio"
 
-    @patch("providers._scan_lmstudio_disk_models",
-           return_value={"publisher/repo", "Model-Q4_K_M"})
+    @patch("providers._scan_lmstudio_disk_models", return_value={"publisher/repo", "Model-Q4_K_M"})
     @patch("providers._lmstudio_is_installed", return_value=True)
     @patch("providers._http_get_json", return_value=None)
     def test_lm_studio_off_still_lists_disk_models(self, _g, _i, _disk):

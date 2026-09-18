@@ -33,8 +33,7 @@ def _ollama_stream():
 
 def _sse_stream(chunks):
     return [
-        f"data: {json.dumps({'choices': [{'delta': {'content': c}}]})}\n".encode()
-        for c in chunks
+        f"data: {json.dumps({'choices': [{'delta': {'content': c}}]})}\n".encode() for c in chunks
     ] + [b"data: [DONE]\n"]
 
 
@@ -181,6 +180,7 @@ def test_chat_message_conversion_text_only():
 
 def test_image_on_non_vision_model_gives_friendly_400():
     import urllib.error
+
     err = urllib.error.HTTPError("http://x", 400, "Bad Request", {}, None)
     with patch("runner.urllib.request.urlopen", side_effect=err):
         out = "".join(

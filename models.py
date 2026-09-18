@@ -51,39 +51,72 @@ class KvQuant(str, Enum):
 # Publishers considered "official" first-party sources. Matched case-insensitively
 # against LlmModel.provider, which may be an HF org slug ("meta-llama") or a
 # display name ("Meta"), so both forms are listed.
-OFFICIAL_ORGS: frozenset[str] = frozenset({
-    "meta", "meta-llama", "facebook", "ai at meta",
-    "mistralai", "mistral", "mistral ai",
-    "qwen", "alibaba", "alibaba cloud", "qwenlm",
-    "google", "google deepmind",
-    "microsoft",
-    "deepseek", "deepseek-ai", "deepseek ai",
-    "nvidia",
-    "allenai", "ai2", "allen institute for ai",
-    "eleutherai",
-    "huggingfacetb", "hugging face", "huggingface",
-    "salesforce",
-    "moonshotai", "moonshot ai",
-    "zai-org", "z.ai", "zhipuai", "thudm",
-    "liquid ai", "liquidai", "liquid-ai",
-    "openai",
-    "cohere", "cohereforai", "cohere for ai",
-    "databricks",
-    "ibm", "ibm-granite", "ibm granite",
-    "stabilityai", "stability ai",
-    "xai",
-    "01-ai", "01.ai", "yi",
-    "baai",
-    "opengvlab",
-    "llava-hf",
-    "redhatai", "red hat ai",
-    "snowflake",
-    "upstage",
-    "tiiuae", "technology innovation institute",
-    "nousresearch", "nous research",
-    "internlm",
-    "apple",
-})
+OFFICIAL_ORGS: frozenset[str] = frozenset(
+    {
+        "meta",
+        "meta-llama",
+        "facebook",
+        "ai at meta",
+        "mistralai",
+        "mistral",
+        "mistral ai",
+        "qwen",
+        "alibaba",
+        "alibaba cloud",
+        "qwenlm",
+        "google",
+        "google deepmind",
+        "microsoft",
+        "deepseek",
+        "deepseek-ai",
+        "deepseek ai",
+        "nvidia",
+        "allenai",
+        "ai2",
+        "allen institute for ai",
+        "eleutherai",
+        "huggingfacetb",
+        "hugging face",
+        "huggingface",
+        "salesforce",
+        "moonshotai",
+        "moonshot ai",
+        "zai-org",
+        "z.ai",
+        "zhipuai",
+        "thudm",
+        "liquid ai",
+        "liquidai",
+        "liquid-ai",
+        "openai",
+        "cohere",
+        "cohereforai",
+        "cohere for ai",
+        "databricks",
+        "ibm",
+        "ibm-granite",
+        "ibm granite",
+        "stabilityai",
+        "stability ai",
+        "xai",
+        "01-ai",
+        "01.ai",
+        "yi",
+        "baai",
+        "opengvlab",
+        "llava-hf",
+        "redhatai",
+        "red hat ai",
+        "snowflake",
+        "upstage",
+        "tiiuae",
+        "technology innovation institute",
+        "nousresearch",
+        "nous research",
+        "internlm",
+        "apple",
+    }
+)
 
 
 def is_official_provider(provider: str) -> bool:
@@ -128,6 +161,7 @@ def is_trusted_source(model) -> bool:
 # Engine (motor) format compatibility
 # ---------------------------------------------------------------------------
 
+
 # Every runtime this app targets (Ollama, LM Studio, llama.cpp, Docker Model
 # Runner) runs GGUF. LM Studio additionally runs MLX, but only on macOS.
 # AWQ / GPTQ are GPU/vLLM formats that none of these engines can run.
@@ -152,11 +186,11 @@ def is_engine_compatible(fmt: str) -> bool:
 
 # (upper-bound in B, label, key). Last bucket is open-ended.
 _SIZE_BUCKETS = (
-    (1.0,   "Tiny",   "tiny"),
-    (4.0,   "Small",  "small"),
-    (15.0,  "Medium", "medium"),
-    (40.0,  "Large",  "large"),
-    (100.0, "XL",     "xl"),
+    (1.0, "Tiny", "tiny"),
+    (4.0, "Small", "small"),
+    (15.0, "Medium", "medium"),
+    (40.0, "Large", "large"),
+    (100.0, "XL", "xl"),
 )
 
 
@@ -173,6 +207,7 @@ def size_class(params_b: float) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 # Model-name normalisation (robust matching against installed engine names)
 # ---------------------------------------------------------------------------
+
 
 def normalize_model_name(name: str) -> str:
     """Collapse a model name to a comparable key.
@@ -193,10 +228,23 @@ _QUANT_RE = re.compile(
     r"\b(i?q\d+(?:[_-]?[a-z0-9]+)*|fp?\d+|bf16|f16|f32|int[48]|gptq|awq|exl2|mlx)\b"
 )
 # Generic tuning/format words that also don't distinguish one model from another.
-_GENERIC_WORDS: frozenset[str] = frozenset({
-    "instruct", "instruction", "chat", "it", "base", "latest", "default",
-    "gguf", "hf", "safetensors", "imatrix", "im", "ggml",
-})
+_GENERIC_WORDS: frozenset[str] = frozenset(
+    {
+        "instruct",
+        "instruction",
+        "chat",
+        "it",
+        "base",
+        "latest",
+        "default",
+        "gguf",
+        "hf",
+        "safetensors",
+        "imatrix",
+        "im",
+        "ggml",
+    }
+)
 
 
 def _size_token(name: str) -> str:

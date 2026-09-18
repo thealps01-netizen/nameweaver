@@ -76,9 +76,7 @@ class FilterBar(QWidget):
             ("too_much", "Too much"),
         ):
             self._comfort_combo.addItem(label, key)
-        self._comfort_combo.setToolTip(
-            "Filter by how comfortably your PC runs the model"
-        )
+        self._comfort_combo.setToolTip("Filter by how comfortably your PC runs the model")
         self._comfort_combo.currentIndexChanged.connect(self._on_filter_changed)
         outer.addWidget(self._comfort_combo, stretch=1)
 
@@ -107,9 +105,7 @@ class FilterBar(QWidget):
         self._min_tps_combo.addItem("Min TPS", "0")
         for tps in ("5", "10", "20", "30", "50"):
             self._min_tps_combo.addItem(f"≥ {tps} tok/s", tps)
-        self._min_tps_combo.setToolTip(
-            "Target tokens per second — models below this are hidden"
-        )
+        self._min_tps_combo.setToolTip("Target tokens per second — models below this are hidden")
         self._min_tps_combo.currentIndexChanged.connect(self._on_filter_changed)
         outer.addWidget(self._min_tps_combo, stretch=1)
 
@@ -200,9 +196,16 @@ class FilterBar(QWidget):
     def reset_filters(self):
         """Reset all filters to default values."""
         self._search.clear()
-        for combo in (self._provider_combo, self._usecase_combo, self._fit_combo,
-                      self._comfort_combo, self._quant_combo, self._license_combo,
-                      self._cap_combo, self._min_tps_combo):
+        for combo in (
+            self._provider_combo,
+            self._usecase_combo,
+            self._fit_combo,
+            self._comfort_combo,
+            self._quant_combo,
+            self._license_combo,
+            self._cap_combo,
+            self._min_tps_combo,
+        ):
             combo.setCurrentIndex(0)
         self._installed_checkbox.setChecked(False)
 

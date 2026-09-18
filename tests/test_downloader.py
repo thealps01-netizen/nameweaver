@@ -26,10 +26,10 @@ class _FakeResponse:
 
     def read(self, size=-1):
         if size < 0:
-            chunk = self._body[self._pos:]
+            chunk = self._body[self._pos :]
             self._pos = len(self._body)
             return chunk
-        chunk = self._body[self._pos:self._pos + size]
+        chunk = self._body[self._pos : self._pos + size]
         self._pos += len(chunk)
         return chunk
 

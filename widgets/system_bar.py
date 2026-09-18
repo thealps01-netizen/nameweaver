@@ -48,9 +48,7 @@ class _SysCard(QFrame):
         layout.setSpacing(10)
 
         self._icon_lbl = QLabel()
-        self._icon_lbl.setPixmap(
-            qta.icon(icon_name, color=theme.accent).pixmap(QSize(24, 24))
-        )
+        self._icon_lbl.setPixmap(qta.icon(icon_name, color=theme.accent).pixmap(QSize(24, 24)))
         self._icon_lbl.setFixedSize(28, 28)
         self._icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._icon_lbl.setStyleSheet("background: transparent; border: none;")
@@ -188,9 +186,7 @@ class SystemBar(QWidget):
                 gpu = specs.gpus[0].name.replace(" Graphics", "").strip()
                 if len(gpu) > 28:
                     gpu = gpu[:25] + "…"
-                self._gpu_card.set_value(
-                    f"{gpu}  |  {specs.total_gpu_vram_gb:.1f} GB VRAM"
-                )
+                self._gpu_card.set_value(f"{gpu}  |  {specs.total_gpu_vram_gb:.1f} GB VRAM")
         elif specs.has_gpu:
             gpu = specs.gpu_name.replace(" Graphics", "").strip()
             if len(gpu) > 28:
@@ -210,9 +206,7 @@ class SystemBar(QWidget):
 
         # Optional header: mixed-backend warning
         if has_mixed_backends(self._specs):
-            header = QLabel(
-                "  ⚠  Mixed GPU backends — parallel inference may be limited"
-            )
+            header = QLabel("  ⚠  Mixed GPU backends — parallel inference may be limited")
             header.setStyleSheet(
                 f"color: {t.warning}; font-size: 11px; font-weight: 600;"
                 f" padding: 6px 12px; background: transparent; border: none;"
@@ -233,9 +227,7 @@ class SystemBar(QWidget):
                 f"QCheckBox::indicator {{ width: 16px; height: 16px; }}"
             )
             # Capture current gpu via default arg
-            cb.toggled.connect(
-                lambda checked, g=gpu: self._on_gpu_toggled(g, checked)
-            )
+            cb.toggled.connect(lambda checked, g=gpu: self._on_gpu_toggled(g, checked))
             row_act = QWidgetAction(menu)
             row_act.setDefaultWidget(cb)
             menu.addAction(row_act)
@@ -249,9 +241,7 @@ class SystemBar(QWidget):
         if self._specs is not None:
             active = [g.name for g in self._specs.gpus if g.enabled]
             # Refresh total VRAM on specs so downstream consumers see it
-            self._specs.total_gpu_vram_gb = sum(
-                g.vram_gb for g in self._specs.gpus if g.enabled
-            )
+            self._specs.total_gpu_vram_gb = sum(g.vram_gb for g in self._specs.gpus if g.enabled)
             self.update_hardware(self._specs)
             self.gpu_selection_changed.emit(active)
 

@@ -61,10 +61,7 @@ class ProviderPoller(QThread):
         while not self.isInterruptionRequested():
             try:
                 providers = detect_all_providers()
-                sig = tuple(
-                    (p.name, p.state.value, len(p.installed_models))
-                    for p in providers
-                )
+                sig = tuple((p.name, p.state.value, len(p.installed_models)) for p in providers)
                 if sig != self._last_signature:
                     self._last_signature = sig
                     self.status_changed.emit(providers)
@@ -95,6 +92,7 @@ class ProviderStartWorker(QThread):
     def run(self) -> None:
         try:
             from provider_control import start_provider
+
             ok = start_provider(self._action_key)
             self.finished.emit(ok)
         except Exception as exc:
@@ -115,6 +113,7 @@ class ProviderStopWorker(QThread):
     def run(self) -> None:
         try:
             from provider_control import stop_provider
+
             ok = stop_provider(self._action_key)
             self.finished.emit(ok)
         except Exception as exc:

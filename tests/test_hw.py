@@ -190,8 +190,7 @@ class TestRocmSmiMultiGpu:
             GpuInfo(name="AMD Radeon RX 7900 XT", vendor="AMD", backend=GpuBackend.VULKAN),
         ]
         output = (
-            "GPU[0]   : Total Memory (B): 25753026560\n"
-            "GPU[1]   : Total Memory (B): 21474836480\n"
+            "GPU[0]   : Total Memory (B): 25753026560\nGPU[1]   : Total Memory (B): 21474836480\n"
         )
         self._run_rocm(output, specs)
         assert specs.gpus[0].vram_gb == 24.0

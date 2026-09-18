@@ -102,8 +102,7 @@ class AboutDialog(QDialog):
         title_col.addWidget(title)
         version = QLabel(f"v{__version__}")
         version.setStyleSheet(
-            f"font-size: 11px; color: {c.fg_muted};"
-            " background: transparent; border: none;"
+            f"font-size: 11px; color: {c.fg_muted}; background: transparent; border: none;"
         )
         title_col.addWidget(version)
         h_layout.addLayout(title_col)
@@ -132,8 +131,7 @@ class AboutDialog(QDialog):
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
         desc.setStyleSheet(
-            f"color: {c.fg}; font-size: 12px; line-height: 1.5;"
-            " background: transparent;"
+            f"color: {c.fg}; font-size: 12px; line-height: 1.5; background: transparent;"
         )
         layout.addWidget(desc)
 
@@ -277,8 +275,7 @@ class AlertDialog(QDialog):
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
         desc.setStyleSheet(
-            f"color: {c.fg}; font-size: 13px; line-height: 1.5;"
-            " background: transparent;"
+            f"color: {c.fg}; font-size: 13px; line-height: 1.5; background: transparent;"
         )
         layout.addWidget(desc)
 

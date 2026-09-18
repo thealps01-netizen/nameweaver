@@ -85,9 +85,7 @@ class DownloadDialog(QDialog):
         self._message = message
         self._bar.setRange(0, 100)
         self._bar.setValue(100 if ok else 0)
-        self._status_label.setText(
-            f"✔ {message}" if ok else f"✗ {message}"
-        )
+        self._status_label.setText(f"✔ {message}" if ok else f"✗ {message}")
         self._cancel_btn.setEnabled(False)
         self._close_btn.setEnabled(True)
         self._close_btn.setDefault(True)
@@ -126,25 +124,25 @@ class DownloadDialog(QDialog):
 # Ordered roughly from smallest/lowest quality to largest/highest.
 _QUANT_INFO: dict[str, tuple[str, str]] = {
     # quant -> (short label, description)
-    "Q2_K":   ("Smallest",        "Very low quality — for testing only"),
-    "Q3_K_S": ("Small",           "Low quality, small file"),
-    "Q3_K_M": ("Small",           "Low-to-medium quality"),
-    "Q3_K_L": ("Small+",          "Medium quality"),
-    "IQ3_XS": ("Small (IQ)",      "Smart 3-bit — balanced"),
-    "IQ3_S":  ("Small (IQ)",      "Smart 3-bit"),
-    "IQ3_M":  ("Small (IQ)",      "Smart 3-bit, better"),
-    "Q4_0":   ("Legacy-4bit",     "Legacy 4-bit — prefer modern variants"),
-    "Q4_K_S": ("Medium",          "4-bit small — speed-focused"),
-    "Q4_K_M": ("Recommended",     "Quality/size balance — ideal for most uses"),
-    "IQ4_XS": ("Medium (IQ)",     "Smart 4-bit, smaller"),
-    "IQ4_NL": ("Medium (IQ)",     "Smart 4-bit, balanced"),
-    "Q5_0":   ("Legacy-5bit",     "Legacy 5-bit"),
-    "Q5_K_S": ("High quality",    "5-bit small"),
-    "Q5_K_M": ("High quality",    "High quality — clearly better than Q4"),
-    "Q6_K":   ("Very high",       "Near-FP16 quality, large file"),
-    "Q8_0":   ("Full quality",    "Maximum quality, very large"),
-    "F16":    ("Raw",             "Uncompressed — huge file"),
-    "BF16":   ("Raw",             "Uncompressed — huge file"),
+    "Q2_K": ("Smallest", "Very low quality — for testing only"),
+    "Q3_K_S": ("Small", "Low quality, small file"),
+    "Q3_K_M": ("Small", "Low-to-medium quality"),
+    "Q3_K_L": ("Small+", "Medium quality"),
+    "IQ3_XS": ("Small (IQ)", "Smart 3-bit — balanced"),
+    "IQ3_S": ("Small (IQ)", "Smart 3-bit"),
+    "IQ3_M": ("Small (IQ)", "Smart 3-bit, better"),
+    "Q4_0": ("Legacy-4bit", "Legacy 4-bit — prefer modern variants"),
+    "Q4_K_S": ("Medium", "4-bit small — speed-focused"),
+    "Q4_K_M": ("Recommended", "Quality/size balance — ideal for most uses"),
+    "IQ4_XS": ("Medium (IQ)", "Smart 4-bit, smaller"),
+    "IQ4_NL": ("Medium (IQ)", "Smart 4-bit, balanced"),
+    "Q5_0": ("Legacy-5bit", "Legacy 5-bit"),
+    "Q5_K_S": ("High quality", "5-bit small"),
+    "Q5_K_M": ("High quality", "High quality — clearly better than Q4"),
+    "Q6_K": ("Very high", "Near-FP16 quality, large file"),
+    "Q8_0": ("Full quality", "Maximum quality, very large"),
+    "F16": ("Raw", "Uncompressed — huge file"),
+    "BF16": ("Raw", "Uncompressed — huge file"),
 }
 
 
@@ -197,9 +195,7 @@ class GgufPickerDialog(QDialog):
         layout.addWidget(header)
 
         self._table = QTableWidget(len(files), 4)
-        self._table.setHorizontalHeaderLabels(
-            ["File", "Quant", "Size", "Description"]
-        )
+        self._table.setHorizontalHeaderLabels(["File", "Quant", "Size", "Description"])
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -219,7 +215,7 @@ class GgufPickerDialog(QDialog):
             path = item["path"]
             self._paths.append(path)
             size_bytes = item.get("size", 0)
-            size_gb = size_bytes / (1024 ** 3)
+            size_gb = size_bytes / (1024**3)
             quant = _detect_quant(path)
             label, desc = _QUANT_INFO.get(quant, ("", "Unknown format"))
 
@@ -231,13 +227,11 @@ class GgufPickerDialog(QDialog):
             quant_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self._table.setItem(row, 1, quant_item)
 
-            size_str = f"{size_gb:.2f} GB" if size_gb >= 0.05 else (
-                f"{size_bytes / (1024 * 1024):.0f} MB"
+            size_str = (
+                f"{size_gb:.2f} GB" if size_gb >= 0.05 else (f"{size_bytes / (1024 * 1024):.0f} MB")
             )
             size_item = QTableWidgetItem(size_str)
-            size_item.setTextAlignment(
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            )
+            size_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             if vram_budget_gb > 0 and size_gb > 0:
                 if size_gb <= vram_budget_gb * 0.85:
                     size_item.setForeground(Qt.GlobalColor.green)
@@ -328,9 +322,8 @@ class GgufMirrorPickerDialog(QDialog):
 
         # Tokenize base_name for match scoring. Split on non-alnum, lowercase.
         import re
-        self._tokens = [
-            t for t in re.split(r"[^a-zA-Z0-9]+", base_name.lower()) if t
-        ]
+
+        self._tokens = [t for t in re.split(r"[^a-zA-Z0-9]+", base_name.lower()) if t]
 
         layout = QVBoxLayout(self)
         header = QLabel(

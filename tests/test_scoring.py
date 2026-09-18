@@ -27,23 +27,43 @@ class TestLayerSplitWarning:
             cpu_name="Test",
             total_cpu_cores=16,
             has_gpu=True,
-            gpu_name="A", gpu_vram_gb=2.0,
-            total_gpu_vram_gb=42.0, gpu_count=2,
+            gpu_name="A",
+            gpu_vram_gb=2.0,
+            total_gpu_vram_gb=42.0,
+            gpu_count=2,
             gpu_backend=GpuBackend.CUDA,
             gpus=[
-                GpuInfo(name="Small", vram_gb=2.0, backend=GpuBackend.CUDA,
-                        bandwidth_gbps=100.0, vendor="NVIDIA", enabled=True),
-                GpuInfo(name="Big", vram_gb=40.0, backend=GpuBackend.CUDA,
-                        bandwidth_gbps=1008.0, vendor="NVIDIA", enabled=True),
+                GpuInfo(
+                    name="Small",
+                    vram_gb=2.0,
+                    backend=GpuBackend.CUDA,
+                    bandwidth_gbps=100.0,
+                    vendor="NVIDIA",
+                    enabled=True,
+                ),
+                GpuInfo(
+                    name="Big",
+                    vram_gb=40.0,
+                    backend=GpuBackend.CUDA,
+                    bandwidth_gbps=1008.0,
+                    vendor="NVIDIA",
+                    enabled=True,
+                ),
             ],
             gpu_bandwidth_gbps=1008.0,
         )
         # 100B / 80 layers @ Q4 = 50 GB weights → 0.625 GB/layer × 1.3 = 0.81 GB
         # Still fits 2 GB — need bigger. Use 400B.
         m = LlmModel(
-            name="huge", parameter_count="400B", format="gguf",
-            quantization="Q4_K_M", n_layers=80, attention_heads=64,
-            hidden_dim=8192, ctx_length=2048, use_case="general",
+            name="huge",
+            parameter_count="400B",
+            format="gguf",
+            quantization="Q4_K_M",
+            n_layers=80,
+            attention_heads=64,
+            hidden_dim=8192,
+            ctx_length=2048,
+            use_case="general",
         )
         fit = ModelFit.analyze(m, specs, context_limit=512)
         if fit.run_mode == RunMode.GPU:  # Only meaningful if it landed on GPU
@@ -169,12 +189,20 @@ class TestPreferenceBias:
         from models import LlmModel
 
         small = LlmModel(
-            name="tiny", parameter_count="1B", format="gguf", quantization="Q4_K_M",
-            ctx_length=4096, use_case="general",
+            name="tiny",
+            parameter_count="1B",
+            format="gguf",
+            quantization="Q4_K_M",
+            ctx_length=4096,
+            use_case="general",
         )
         big = LlmModel(
-            name="bigger", parameter_count="13B", format="gguf", quantization="Q4_K_M",
-            ctx_length=4096, use_case="general",
+            name="bigger",
+            parameter_count="13B",
+            format="gguf",
+            quantization="Q4_K_M",
+            ctx_length=4096,
+            use_case="general",
         )
         small_q = ModelFit.analyze(small, sample_specs, preference=1.0)  # pure quality
         big_q = ModelFit.analyze(big, sample_specs, preference=1.0)
@@ -186,18 +214,30 @@ class TestPreferenceBias:
         from models import LlmModel
 
         small = LlmModel(
-            name="tiny", parameter_count="1B", format="gguf", quantization="Q4_K_M",
-            ctx_length=4096, use_case="general",
+            name="tiny",
+            parameter_count="1B",
+            format="gguf",
+            quantization="Q4_K_M",
+            ctx_length=4096,
+            use_case="general",
         )
         big = LlmModel(
-            name="bigger", parameter_count="13B", format="gguf", quantization="Q4_K_M",
-            ctx_length=4096, use_case="general",
+            name="bigger",
+            parameter_count="13B",
+            format="gguf",
+            quantization="Q4_K_M",
+            ctx_length=4096,
+            use_case="general",
         )
         # Pure quality: big > small. Pure speed: gap narrows.
-        q_gap = ModelFit.analyze(big, sample_specs, preference=1.0).score - \
-                ModelFit.analyze(small, sample_specs, preference=1.0).score
-        s_gap = ModelFit.analyze(big, sample_specs, preference=0.0).score - \
-                ModelFit.analyze(small, sample_specs, preference=0.0).score
+        q_gap = (
+            ModelFit.analyze(big, sample_specs, preference=1.0).score
+            - ModelFit.analyze(small, sample_specs, preference=1.0).score
+        )
+        s_gap = (
+            ModelFit.analyze(big, sample_specs, preference=0.0).score
+            - ModelFit.analyze(small, sample_specs, preference=0.0).score
+        )
         assert s_gap < q_gap
 
     def test_apply_preference_mutates_in_place(self, sample_specs, small_model, large_model):
@@ -320,20 +360,41 @@ class TestMultiGpuScoring:
             gpu_count=2,
             gpu_backend=GpuBackend.CUDA,
             gpus=[
-                GpuInfo(name="RTX 3060", vram_gb=12.0, backend=GpuBackend.CUDA,
-                        bandwidth_gbps=360.0, vendor="NVIDIA", enabled=True),
-                GpuInfo(name="RTX 4090", vram_gb=24.0, backend=GpuBackend.CUDA,
-                        bandwidth_gbps=1008.0, vendor="NVIDIA", enabled=True),
+                GpuInfo(
+                    name="RTX 3060",
+                    vram_gb=12.0,
+                    backend=GpuBackend.CUDA,
+                    bandwidth_gbps=360.0,
+                    vendor="NVIDIA",
+                    enabled=True,
+                ),
+                GpuInfo(
+                    name="RTX 4090",
+                    vram_gb=24.0,
+                    backend=GpuBackend.CUDA,
+                    bandwidth_gbps=1008.0,
+                    vendor="NVIDIA",
+                    enabled=True,
+                ),
             ],
             gpu_bandwidth_gbps=360.0,  # legacy primary value (slow card listed first)
         )
         # Build a small model that fits on GPU
         from models import LlmModel
+
         m = LlmModel(
-            name="Test-3B", provider="test", parameter_count="3B",
-            ram_gb=3.5, vram_gb=2.5, format="gguf", quantization="Q4_K_M",
-            n_layers=28, attention_heads=24, hidden_dim=3072,
-            ctx_length=4096, use_case="general",
+            name="Test-3B",
+            provider="test",
+            parameter_count="3B",
+            ram_gb=3.5,
+            vram_gb=2.5,
+            format="gguf",
+            quantization="Q4_K_M",
+            n_layers=28,
+            attention_heads=24,
+            hidden_dim=3072,
+            ctx_length=4096,
+            use_case="general",
         )
         fit = ModelFit.analyze(m, specs)
         # Now disable the 4090 → TPS must drop

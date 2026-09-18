@@ -51,9 +51,11 @@ def _pick_primary(providers: list[ProviderStatus]) -> ProviderStatus | None:
     # Priority: READY > INSTALLED_OFF > NOT_INSTALLED
     # Within each bucket, Ollama first (simplest), then LM Studio, then others.
     priority_name = ("Ollama", "LM Studio", "Docker Model Runner", "llama.cpp")
-    for target_state in (ProviderState.READY,
-                         ProviderState.INSTALLED_OFF,
-                         ProviderState.NOT_INSTALLED):
+    for target_state in (
+        ProviderState.READY,
+        ProviderState.INSTALLED_OFF,
+        ProviderState.NOT_INSTALLED,
+    ):
         for name in priority_name:
             for p in providers:
                 if p.name == name and p.state == target_state:
@@ -64,28 +66,27 @@ def _pick_primary(providers: list[ProviderStatus]) -> ProviderStatus | None:
 class EngineStatusPill(QFrame):
     """Clickable status chip for the system bar."""
 
-    start_requested = pyqtSignal(str)         # start_action key
-    stop_requested = pyqtSignal(str)          # stop_action key
-    install_requested = pyqtSignal(str)       # provider name
-    open_guide_requested = pyqtSignal(str)    # provider name
+    start_requested = pyqtSignal(str)  # start_action key
+    stop_requested = pyqtSignal(str)  # stop_action key
+    install_requested = pyqtSignal(str)  # provider name
+    open_guide_requested = pyqtSignal(str)  # provider name
 
     def __init__(self, theme_name: str = "dark", parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("engine_pill")
         self._theme_name = theme_name
         self._providers: list[ProviderStatus] = []
-        self._busy_names: set[str] = set()          # providers mid-start/stop
-        self._busy_actions: dict[str, str] = {}     # name -> "start" | "stop"
+        self._busy_names: set[str] = set()  # providers mid-start/stop
+        self._busy_actions: dict[str, str] = {}  # name -> "start" | "stop"
         self._current_menu: QMenu | None = None
-        self._selected_name: str | None = None      # user-chosen featured engine
+        self._selected_name: str | None = None  # user-chosen featured engine
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 8, 14, 8)
         layout.setSpacing(10)
 
         self._dot = QLabel("●")
-        self._dot.setStyleSheet("background: transparent; border: none;"
-                                " font-size: 16px;")
+        self._dot.setStyleSheet("background: transparent; border: none; font-size: 16px;")
         layout.addWidget(self._dot)
 
         # Spinner shown in place of dot while a start/stop action is pending
@@ -114,8 +115,7 @@ class EngineStatusPill(QFrame):
 
         self._status = QLabel("…")
         self._status.setStyleSheet(
-            "font-size: 13px; font-weight: 500;"
-            " background: transparent; border: none;"
+            "font-size: 13px; font-weight: 500; background: transparent; border: none;"
         )
         text_col.addWidget(self._status)
 
@@ -212,8 +212,7 @@ class EngineStatusPill(QFrame):
 
         if state == ProviderState.READY:
             self._dot.setStyleSheet(
-                f"color: {t.good}; background: transparent; border: none;"
-                " font-size: 16px;"
+                f"color: {t.good}; background: transparent; border: none; font-size: 16px;"
             )
             name = primary.name if primary else "—"
             self._status.setText(f"Ready · {name}")
@@ -221,8 +220,7 @@ class EngineStatusPill(QFrame):
 
         elif state == ProviderState.INSTALLED_OFF:
             self._dot.setStyleSheet(
-                f"color: {t.warning}; background: transparent; border: none;"
-                " font-size: 16px;"
+                f"color: {t.warning}; background: transparent; border: none; font-size: 16px;"
             )
             name = primary.name if primary else "Engine"
             self._status.setText(f"{name} off")
@@ -231,8 +229,7 @@ class EngineStatusPill(QFrame):
 
         else:  # NOT_INSTALLED
             self._dot.setStyleSheet(
-                f"color: {t.error}; background: transparent; border: none;"
-                " font-size: 16px;"
+                f"color: {t.error}; background: transparent; border: none; font-size: 16px;"
             )
             self._status.setText("Install required")
             self._action_btn.setText("Install")
@@ -295,9 +292,7 @@ class EngineStatusPill(QFrame):
                 self._show_details_popup()
         super().mousePressEvent(event)
 
-    def set_provider_busy(
-        self, name: str, busy: bool, action: str = "start"
-    ) -> None:
+    def set_provider_busy(self, name: str, busy: bool, action: str = "start") -> None:
         """Mark a provider as in-progress so its row shows a spinner.
 
         ``action`` is ``"start"`` or ``"stop"`` — controls the label shown
@@ -367,8 +362,10 @@ class EngineStatusPill(QFrame):
         lay.setSpacing(10)
 
         dot_color = (
-            t.good if p.state == ProviderState.READY
-            else t.warning if p.state == ProviderState.INSTALLED_OFF
+            t.good
+            if p.state == ProviderState.READY
+            else t.warning
+            if p.state == ProviderState.INSTALLED_OFF
             else t.error
         )
         dot = QLabel("●")
@@ -382,9 +379,7 @@ class EngineStatusPill(QFrame):
         # Check mark on the currently-featured engine.
         if is_featured:
             check = QLabel()
-            check.setPixmap(
-                qta.icon("mdi6.check-circle", color=t.accent).pixmap(QSize(15, 15))
-            )
+            check.setPixmap(qta.icon("mdi6.check-circle", color=t.accent).pixmap(QSize(15, 15)))
             check.setStyleSheet("background: transparent; border: none;")
             lay.addWidget(check)
 
@@ -402,9 +397,7 @@ class EngineStatusPill(QFrame):
         # Busy → show spinner instead of action button
         if p.name in self._busy_names:
             action = self._busy_actions.get(p.name, "start")
-            busy_lbl = QLabel(
-                "Starting…" if action == "start" else "Stopping…"
-            )
+            busy_lbl = QLabel("Starting…" if action == "start" else "Stopping…")
             busy_lbl.setStyleSheet(
                 f"color: {t.fg_muted}; font-size: 11px; font-style: italic;"
                 f" background: transparent; border: none;"
@@ -444,6 +437,7 @@ class EngineStatusPill(QFrame):
             def _on_stop(_=False, key=p.stop_action, name=p.name):
                 self.set_provider_busy(name, True, "stop")
                 self.stop_requested.emit(key)
+
             btn.clicked.connect(_on_stop)
             lay.addWidget(btn)
         elif p.state == ProviderState.INSTALLED_OFF and p.start_action:
@@ -459,6 +453,7 @@ class EngineStatusPill(QFrame):
             def _on_start(_=False, key=p.start_action, name=p.name):
                 self.set_provider_busy(name, True, "start")
                 self.start_requested.emit(key)
+
             btn.clicked.connect(_on_start)
             lay.addWidget(btn)
         elif p.state == ProviderState.NOT_INSTALLED:
@@ -471,9 +466,7 @@ class EngineStatusPill(QFrame):
                 f" QPushButton:hover {{ background: {t.accent};"
                 f" color: {t.accent_text}; }}"
             )
-            btn.clicked.connect(
-                lambda _=False, n=p.name: self.install_requested.emit(n)
-            )
+            btn.clicked.connect(lambda _=False, n=p.name: self.install_requested.emit(n))
             lay.addWidget(btn)
 
         return row

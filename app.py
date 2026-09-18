@@ -171,6 +171,7 @@ class _RoundedPanel(QWidget):
 
     def paintEvent(self, _event):
         from PyQt6.QtCore import QRectF
+
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = QRectF(0.5, 0.5, self.width() - 1, self.height() - 1)
@@ -188,8 +189,13 @@ class _RoundedPanel(QWidget):
 class _GradientTitleBar(QWidget):
     """Title bar with a subtle gradient and rounded top corners."""
 
-    def __init__(self, bg_start: str = "#1e1e2e", bg_end: str = "#181825",
-                 border: str = "#313244", parent=None):
+    def __init__(
+        self,
+        bg_start: str = "#1e1e2e",
+        bg_end: str = "#181825",
+        border: str = "#313244",
+        parent=None,
+    ):
         super().__init__(parent)
         self._bg_start = bg_start
         self._bg_end = bg_end
@@ -291,9 +297,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window
-        )
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMinimumSize(800, 500)
         self._drag_pos = None
@@ -305,13 +309,12 @@ class MainWindow(QMainWindow):
         self._providers: list[ProviderStatus] = []
         self._fits: list[ModelFit] = []
 
-
         # Workers
         self._hw_worker: HardwareWorker | None = None
         self._provider_worker: ProviderWorker | None = None
         self._provider_poller = None  # ProviderPoller — periodic state refresh
         self._provider_start_worker = None  # ProviderStartWorker — active start action
-        self._provider_stop_worker = None   # ProviderStopWorker — active stop action
+        self._provider_stop_worker = None  # ProviderStopWorker — active stop action
         self._scoring_worker: ScoringWorker | None = None
         self._download_workers: list = []  # kept alive; stopped on close
         self._hf_worker: HFUpdateWorker | None = None
@@ -366,9 +369,7 @@ class MainWindow(QMainWindow):
         panel_layout.setSpacing(0)
 
         # Title bar (gradient, rounded top corners)
-        self._title_bar = _GradientTitleBar(
-            bg_start=tc.bg_alt, bg_end=tc.bg, border=tc.border
-        )
+        self._title_bar = _GradientTitleBar(bg_start=tc.bg_alt, bg_end=tc.bg, border=tc.border)
         self._title_bar.setFixedHeight(52)
         header_layout = QHBoxLayout(self._title_bar)
         header_layout.setContentsMargins(18, 0, 10, 0)
@@ -452,7 +453,6 @@ class MainWindow(QMainWindow):
         main_area = QVBoxLayout()
         main_area.setContentsMargins(0, 0, 0, 0)
         main_area.setSpacing(0)
-
 
         # Collect sidebar buttons for theme-aware icon refresh
 
@@ -569,6 +569,7 @@ class MainWindow(QMainWindow):
 
         # Engine status pill — lives alongside the system bar
         from widgets.engine_status import EngineStatusPill
+
         self._engine_pill = EngineStatusPill(theme_name=self._config.theme)
         self._engine_pill.setFixedHeight(68)
         self._engine_pill.start_requested.connect(self._on_engine_start_requested)
@@ -721,7 +722,8 @@ class MainWindow(QMainWindow):
 
         # Collect animated sections for startup effect
         self._anim_widgets = [
-            stats_section, filter_section,
+            stats_section,
+            filter_section,
         ]
 
         main_col.addLayout(main_area, stretch=1)
@@ -784,6 +786,7 @@ class MainWindow(QMainWindow):
 
         # GPU fit count
         from scoring import FitLevel
+
         gpu_fit = sum(1 for f in self._fits if f.fit_level in (FitLevel.PERFECT, FitLevel.GOOD))
         val = self._stat_gpu.findChild(QLabel, "stat_value")
         if val:
@@ -846,8 +849,10 @@ class MainWindow(QMainWindow):
             DWMWA_USE_IMMERSIVE_DARK_MODE = 20
             value = ctypes.c_int(1)
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                ctypes.byref(value), ctypes.sizeof(value),
+                hwnd,
+                DWMWA_USE_IMMERSIVE_DARK_MODE,
+                ctypes.byref(value),
+                ctypes.sizeof(value),
             )
             # Set caption color to match theme bg
             colors = get_theme(self._config.theme)
@@ -859,16 +864,20 @@ class MainWindow(QMainWindow):
             DWMWA_BORDER_COLOR = 34
             border_ref = ctypes.c_int(r | (g << 8) | (b << 16))
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_BORDER_COLOR,
-                ctypes.byref(border_ref), ctypes.sizeof(border_ref),
+                hwnd,
+                DWMWA_BORDER_COLOR,
+                ctypes.byref(border_ref),
+                ctypes.sizeof(border_ref),
             )
 
             # Request rounded corners (Windows 11)
             DWMWA_WINDOW_CORNER_PREFERENCE = 33
             DWMWCP_ROUND = ctypes.c_int(2)
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_WINDOW_CORNER_PREFERENCE,
-                ctypes.byref(DWMWCP_ROUND), ctypes.sizeof(DWMWCP_ROUND),
+                hwnd,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                ctypes.byref(DWMWCP_ROUND),
+                ctypes.sizeof(DWMWCP_ROUND),
             )
         except Exception:
             pass
@@ -885,8 +894,10 @@ class MainWindow(QMainWindow):
             # COLORREF = 0x00BBGGRR
             colorref = ctypes.c_int(r | (g << 8) | (b << 16))
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, DWMWA_CAPTION_COLOR,
-                ctypes.byref(colorref), ctypes.sizeof(colorref),
+                hwnd,
+                DWMWA_CAPTION_COLOR,
+                ctypes.byref(colorref),
+                ctypes.sizeof(colorref),
             )
         except Exception:
             pass
@@ -954,22 +965,22 @@ class MainWindow(QMainWindow):
         # Update painted panel & title bar colors
         self._panel.set_colors(colors.bg, colors.border)
         self._title_bar.set_colors(colors.bg_alt, colors.bg, colors.border)
-        if hasattr(self, '_sidebar_widget'):
+        if hasattr(self, "_sidebar_widget"):
             self._sidebar_widget.set_colors(colors.bg_alt, colors.border)
 
-        if hasattr(self, '_sep1'):
+        if hasattr(self, "_sep1"):
             self._sep1.setStyleSheet(
                 f"background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
                 f"stop:0 {colors.accent}, stop:0.4 {colors.border}, stop:1 transparent);"
                 f" border: none;"
             )
-        if hasattr(self, '_sep2'):
+        if hasattr(self, "_sep2"):
             self._sep2.setStyleSheet(
                 f"background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
                 f"stop:0 {colors.accent}, stop:0.4 {colors.border}, stop:1 transparent);"
                 f" border: none;"
             )
-        if hasattr(self, '_sidebar_brand_sep'):
+        if hasattr(self, "_sidebar_brand_sep"):
             self._sidebar_brand_sep.setStyleSheet(
                 f"background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
                 f"stop:0 {colors.accent}, stop:0.4 {colors.border}, stop:1 transparent);"
@@ -999,7 +1010,10 @@ class MainWindow(QMainWindow):
             hwnd = int(self.winId())
             val = ctypes.c_int(1 if is_dark else 0)
             ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, 20, ctypes.byref(val), ctypes.sizeof(val),
+                hwnd,
+                20,
+                ctypes.byref(val),
+                ctypes.sizeof(val),
             )
         except Exception:
             pass
@@ -1057,7 +1071,7 @@ class MainWindow(QMainWindow):
                     )
 
         # Refresh button in system bar
-        if hasattr(self, '_refresh_btn'):
+        if hasattr(self, "_refresh_btn"):
             self._refresh_btn.setIcon(qta.icon("mdi6.refresh", color=colors.fg_muted))
 
     def _set_theme(self, theme_name: str):
@@ -1069,16 +1083,16 @@ class MainWindow(QMainWindow):
         self._save_config()
 
         # Update check marks in picker if open
-        if hasattr(self, '_theme_picker') and self._theme_picker.isVisible():
+        if hasattr(self, "_theme_picker") and self._theme_picker.isVisible():
             self._theme_picker.hide()
 
         # Update hw_sim icons
-        if hasattr(self, '_hwsim_panel'):
+        if hasattr(self, "_hwsim_panel"):
             self._hwsim_panel.set_theme(theme_name)
 
     def _show_theme_picker(self):
         """Show a custom theme picker flyout next to the sidebar."""
-        if hasattr(self, '_theme_picker') and self._theme_picker.isVisible():
+        if hasattr(self, "_theme_picker") and self._theme_picker.isVisible():
             self._theme_picker.hide()
             return
 
@@ -1095,6 +1109,7 @@ class MainWindow(QMainWindow):
         )
 
         from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+
         shadow = QGraphicsDropShadowEffect(picker)
         shadow.setBlurRadius(16)
         shadow.setOffset(0, 2)
@@ -1111,9 +1126,7 @@ class MainWindow(QMainWindow):
         title_row = QHBoxLayout()
         title_row.setSpacing(10)
         title_icon = QLabel()
-        title_icon.setPixmap(
-            qta.icon("mdi6.palette-outline", color=c.accent).pixmap(QSize(28, 28))
-        )
+        title_icon.setPixmap(qta.icon("mdi6.palette-outline", color=c.accent).pixmap(QSize(28, 28)))
         title_icon.setFixedSize(32, 32)
         title_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_icon.setStyleSheet("background: transparent;")
@@ -1166,9 +1179,7 @@ class MainWindow(QMainWindow):
             icon_color = tc.accent_text if is_current else tc.accent
             icon_lbl = QLabel()
             icon_name = THEME_ICONS.get(theme_key, "mdi6.palette")
-            icon_lbl.setPixmap(
-                qta.icon(icon_name, color=icon_color).pixmap(QSize(28, 28))
-            )
+            icon_lbl.setPixmap(qta.icon(icon_name, color=icon_color).pixmap(QSize(28, 28)))
             icon_lbl.setFixedSize(32, 32)
             icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             btn_layout.addWidget(icon_lbl)
@@ -1229,10 +1240,11 @@ class MainWindow(QMainWindow):
     def _start_refresh_spin(self):
         """Start spinning the refresh button icon using qtawesome Spin."""
         colors = get_theme(self._config.theme)
-        if not hasattr(self, '_spin_anim'):
+        if not hasattr(self, "_spin_anim"):
             self._spin_anim = qta.Spin(self._refresh_btn, interval=30, step=15)
         spin_icon = qta.icon(
-            "mdi6.refresh", color=colors.accent,
+            "mdi6.refresh",
+            color=colors.accent,
             animation=self._spin_anim,
         )
         self._refresh_btn.setIcon(spin_icon)
@@ -1241,12 +1253,10 @@ class MainWindow(QMainWindow):
 
     def _stop_refresh_spin(self):
         """Stop the spin and reset to normal icon."""
-        if hasattr(self, '_spin_anim'):
+        if hasattr(self, "_spin_anim"):
             self._spin_anim.stop()
         colors = get_theme(self._config.theme)
-        self._refresh_btn.setIcon(
-            qta.icon("mdi6.refresh", color=colors.fg_muted)
-        )
+        self._refresh_btn.setIcon(qta.icon("mdi6.refresh", color=colors.fg_muted))
 
     # -----------------------------------------------------------------------
     # Detection & scoring pipeline
@@ -1287,6 +1297,7 @@ class MainWindow(QMainWindow):
         # running and starts/stops Ollama or LM Studio in the background.
         if not hasattr(self, "_provider_poller") or self._provider_poller is None:
             from workers import ProviderPoller
+
             self._provider_poller = ProviderPoller(interval_seconds=10)
             self._provider_poller.status_changed.connect(self._on_providers_detected)
             self._provider_poller.start()
@@ -1295,6 +1306,7 @@ class MainWindow(QMainWindow):
         """Called when hardware detection completes."""
         # Apply persisted per-GPU disable list (from user's last session)
         from hw import apply_disabled_list
+
         apply_disabled_list(specs, self._config.disabled_gpus)
         specs.total_gpu_vram_gb = sum(g.vram_gb for g in specs.gpus if g.enabled)
         self._specs = specs
@@ -1302,9 +1314,12 @@ class MainWindow(QMainWindow):
         self._hwsim_panel.set_real_specs(specs)
         logger.info(
             "Hardware: %s, RAM=%.1f GB, GPU=%s (%.1f GB VRAM, %d/%d enabled)",
-            specs.cpu_name, specs.total_ram_gb, specs.gpu_name,
+            specs.cpu_name,
+            specs.total_ram_gb,
+            specs.gpu_name,
             specs.total_gpu_vram_gb,
-            sum(1 for g in specs.gpus if g.enabled), len(specs.gpus),
+            sum(1 for g in specs.gpus if g.enabled),
+            len(specs.gpus),
         )
         self._start_scoring(specs)
 
@@ -1320,9 +1335,7 @@ class MainWindow(QMainWindow):
             logger.warning("Could not persist disabled_gpus: %s", exc)
         for g in self._specs.gpus:
             g.enabled = g.name in active_names
-        self._specs.total_gpu_vram_gb = sum(
-            g.vram_gb for g in self._specs.gpus if g.enabled
-        )
+        self._specs.total_gpu_vram_gb = sum(g.vram_gb for g in self._specs.gpus if g.enabled)
         # Re-score with the new effective VRAM/bandwidth
         self._start_scoring(self._specs)
 
@@ -1340,7 +1353,8 @@ class MainWindow(QMainWindow):
         # Mark installed models, tracking which engine(s) hold each one.
         for fit in self._fits:
             provs = [
-                p.name for p in providers
+                p.name
+                for p in providers
                 if name_matches_installed(fit.model.name, p.installed_models or set())
             ]
             fit.installed_providers = provs
@@ -1362,6 +1376,7 @@ class MainWindow(QMainWindow):
             return  # Already trying
 
         from workers import ProviderStartWorker
+
         self._provider_start_worker = ProviderStartWorker(action_key)
         self._provider_start_worker.finished.connect(
             lambda ok: self._on_engine_start_finished(action_key, ok)
@@ -1376,12 +1391,16 @@ class MainWindow(QMainWindow):
 
         # Give the user immediate feedback — pill will update on next poll
         from PyQt6.QtWidgets import QApplication
+
         QApplication.processEvents()
 
     _ACTION_TO_PROVIDER = {
-        "start_ollama": "Ollama", "stop_ollama": "Ollama",
-        "start_lmstudio": "LM Studio", "stop_lmstudio": "LM Studio",
-        "start_dmr": "Docker Model Runner", "stop_dmr": "Docker Model Runner",
+        "start_ollama": "Ollama",
+        "stop_ollama": "Ollama",
+        "start_lmstudio": "LM Studio",
+        "stop_lmstudio": "LM Studio",
+        "start_dmr": "Docker Model Runner",
+        "stop_dmr": "Docker Model Runner",
     }
 
     def _clear_engine_busy(self, action_key: str) -> None:
@@ -1402,6 +1421,7 @@ class MainWindow(QMainWindow):
             # LM Studio has no CLI fallback → show guided modal
             if action_key == "start_lmstudio":
                 from provider_control import open_lmstudio_app
+
                 open_lmstudio_app()
                 QMessageBox.information(
                     self,
@@ -1439,6 +1459,7 @@ class MainWindow(QMainWindow):
             return
 
         from workers import ProviderStopWorker
+
         self._provider_stop_worker = ProviderStopWorker(action_key)
         self._provider_stop_worker.finished.connect(
             lambda ok: self._on_engine_stop_finished(action_key, ok)
@@ -1493,10 +1514,7 @@ class MainWindow(QMainWindow):
             f"Should I open the official download page in your browser?"
         )
         if cmd and not cmd.startswith("http"):
-            msg += (
-                f"<br><br>Or you can run this command in your terminal:"
-                f"<br><code>{cmd}</code>"
-            )
+            msg += f"<br><br>Or you can run this command in your terminal:<br><code>{cmd}</code>"
 
         reply = QMessageBox.question(
             self,
@@ -1603,9 +1621,8 @@ class MainWindow(QMainWindow):
         if self._specs:
             self._start_scoring(self._specs)
 
-        msg = (
-            f"HuggingFace update complete: {len(self._models)} models total"
-            + (f" (+{delta} new)" if delta > 0 else "")
+        msg = f"HuggingFace update complete: {len(self._models)} models total" + (
+            f" (+{delta} new)" if delta > 0 else ""
         )
         self._status_bar.showMessage(msg, 5000)
         logger.info(msg)
@@ -1685,9 +1702,7 @@ class MainWindow(QMainWindow):
         # Fallback: slugified name, let Ollama resolve (it errors if unknown).
         return re.sub(r"[\s_]+", "-", name.lower())
 
-    def _resolve_gguf_repo(
-        self, model
-    ) -> tuple[str, list[dict]] | None:
+    def _resolve_gguf_repo(self, model) -> tuple[str, list[dict]] | None:
         """Find a GGUF repo for a model, auto-searching if direct repo lacks GGUFs.
 
         Returns (repo_id, files) or None if user cancels. Shows progress via
@@ -1706,9 +1721,7 @@ class MainWindow(QMainWindow):
             return name.strip().replace(" ", "").lower()
 
         default_repo = (
-            f"{_hf_handle(model.provider)}/{model.name}"
-            if model.provider
-            else model.name
+            f"{_hf_handle(model.provider)}/{model.name}" if model.provider else model.name
         )
 
         repo_id, ok = QInputDialog.getText(
@@ -1750,16 +1763,11 @@ class MainWindow(QMainWindow):
         try:
             results = api.search_models(f"{base_name} GGUF", limit=20)
         except Exception as exc:
-            QMessageBox.warning(
-                self, "Search failed", f"HuggingFace search failed: {exc}"
-            )
+            QMessageBox.warning(self, "Search failed", f"HuggingFace search failed: {exc}")
             return None
 
         # Filter to repos whose id mentions GGUF — these are the mirrors
-        candidates = [
-            r for r in results
-            if "gguf" in r.get("id", "").lower()
-        ]
+        candidates = [r for r in results if "gguf" in r.get("id", "").lower()]
         if not candidates:
             QMessageBox.warning(
                 self,
@@ -1789,6 +1797,7 @@ class MainWindow(QMainWindow):
     def _lmstudio_models_dir(self) -> Path:
         """Where LM Studio looks for GGUF files (honours a custom folder)."""
         from providers import _lmstudio_models_dir as _dir
+
         return _dir()
 
     def _on_download_requested(self, fit: ModelFit):
@@ -1799,7 +1808,8 @@ class MainWindow(QMainWindow):
         if not is_trusted_source(model):
             origin = (
                 f"\n\nThis appears to be a community re-upload of:\n{model.base_model}"
-                if is_reupload(model) else ""
+                if is_reupload(model)
+                else ""
             )
             resp = QMessageBox.warning(
                 self,
@@ -1905,6 +1915,7 @@ class MainWindow(QMainWindow):
                 if reply != QMessageBox.StandardButton.Yes:
                     return
                 from provider_control import start_ollama_service
+
                 if not start_ollama_service():
                     QMessageBox.warning(
                         self,
@@ -2081,11 +2092,13 @@ class MainWindow(QMainWindow):
 
         # Only engines that actually have this model AND are running are
         # selectable — never offer an engine that would just 404.
-        matched_running = [p.name for p in self._providers
-                           if getattr(p, "available", False) and _has(p)]
+        matched_running = [
+            p.name for p in self._providers if getattr(p, "available", False) and _has(p)
+        ]
         # Engines that have the model but whose server is off.
-        have_offline = [p.name for p in self._providers
-                        if not getattr(p, "available", False) and _has(p)]
+        have_offline = [
+            p.name for p in self._providers if not getattr(p, "available", False) and _has(p)
+        ]
 
         if not matched_running and have_offline:
             eng = have_offline[0]
@@ -2122,7 +2135,8 @@ class MainWindow(QMainWindow):
 
         supports_vision = "vision" in [c.lower() for c in (model.capabilities or [])]
         dialog = ChatDialog(
-            model.name, providers,
+            model.name,
+            providers,
             model_ids=model_ids,
             supports_vision=supports_vision,
             theme_name=self._config.theme,
@@ -2138,14 +2152,16 @@ class MainWindow(QMainWindow):
         ids = installed_model_ids(fit.model.name, self._providers)
         if not ids:
             QMessageBox.information(
-                self, "Not installed",
+                self,
+                "Not installed",
                 f"'{fit.model.name}' isn't installed in any engine.",
             )
             return
 
         engines = ", ".join(ids.keys())
         resp = QMessageBox.question(
-            self, "Remove model",
+            self,
+            "Remove model",
             f"Remove '{fit.model.name}' from {engines}?\n\n"
             "This permanently deletes the downloaded model files.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -2155,6 +2171,7 @@ class MainWindow(QMainWindow):
             return
 
         from provider_control import remove_model
+
         results = []
         for pname, mid in ids.items():
             ok, msg = remove_model(pname, mid)
@@ -2341,9 +2358,7 @@ def main():
     # Set App User Model ID for Windows taskbar
     if platform.system() == "Windows":
         try:
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-                "nameweaver.Nameweaver"
-            )
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("nameweaver.Nameweaver")
         except Exception:
             pass
 

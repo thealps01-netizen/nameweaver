@@ -28,8 +28,8 @@ from scoring import FitLevel, ModelFit, RunMode, pc_comfort, runnability
 from themes import ThemeColors, get_theme
 
 COLUMNS = [
-    ("", "check"),              # 0 — checkbox only
-    ("Runs", "runs"),           # traffic-light: will it run here + how well
+    ("", "check"),  # 0 — checkbox only
+    ("Runs", "runs"),  # traffic-light: will it run here + how well
     ("Model Name", "name"),
     ("Provider", "provider"),
     ("Parameters", "params"),
@@ -50,11 +50,9 @@ COLUMNS = [
 DEFAULT_HIDDEN_COLUMNS = ("run_mode", "mem_pct")
 
 # Size class → colour ramp key (small = calm, huge = hot).
-_SIZE_ORDER = {"unknown": 0, "tiny": 1, "small": 2, "medium": 3,
-               "large": 4, "xl": 5, "huge": 6}
+_SIZE_ORDER = {"unknown": 0, "tiny": 1, "small": 2, "medium": 3, "large": 4, "xl": 5, "huge": 6}
 # PC-comfort → sortable rank (easier = higher, so sorting surfaces easy ones).
-_COMFORT_ORDER = {"effortless": 5, "comfortable": 4, "demanding": 3,
-                  "heavy": 2, "too_much": 1}
+_COMFORT_ORDER = {"effortless": 5, "comfortable": 4, "demanding": 3, "heavy": 2, "too_much": 1}
 # Traffic-light → sortable rank + display order.
 _RUNS_ORDER = {"green": 3, "yellow": 2, "red": 1}
 
@@ -247,8 +245,7 @@ class ModelTableModel(QAbstractTableModel):
         # Traffic-light column keeps its colour even on dimmed rows.
         if col == "runs":
             key = runnability(fit)[1]
-            return QColor({"green": c.good, "yellow": c.warning,
-                           "red": c.error}.get(key, c.fg))
+            return QColor({"green": c.good, "yellow": c.warning, "red": c.error}.get(key, c.fg))
 
         # Dim the whole row when no installed engine can run this format —
         # takes precedence over the per-column colours below.
@@ -285,16 +282,23 @@ class ModelTableModel(QAbstractTableModel):
         if col == "size":
             key = size_class(fit.model.params_b())[1]
             ramp = {
-                "tiny": c.good, "small": c.good, "medium": c.fg,
-                "large": c.warning, "xl": c.error, "huge": c.error,
+                "tiny": c.good,
+                "small": c.good,
+                "medium": c.fg,
+                "large": c.warning,
+                "xl": c.error,
+                "huge": c.error,
             }
             return QColor(ramp.get(key, c.fg_muted))
 
         if col == "comfort":
             key = pc_comfort(fit)[1]
             cmap = {
-                "effortless": c.good, "comfortable": c.good,
-                "demanding": c.warning, "heavy": c.warning, "too_much": c.error,
+                "effortless": c.good,
+                "comfortable": c.good,
+                "demanding": c.warning,
+                "heavy": c.warning,
+                "too_much": c.error,
             }
             return QColor(cmap.get(key, c.fg))
 
@@ -368,11 +372,7 @@ class ModelTableModel(QAbstractTableModel):
             return tip
         elif col == "score":
             sc = fit.score_components
-            return (
-                f"Quality: {sc.quality:.1f}\n"
-                f"Speed: {sc.speed:.1f}\n"
-                f"Match: {sc.fit:.1f}"
-            )
+            return f"Quality: {sc.quality:.1f}\nSpeed: {sc.speed:.1f}\nMatch: {sc.fit:.1f}"
         elif col == "mem_pct":
             return (
                 f"Required: {fit.memory_required_gb:.1f} GB\n"
@@ -591,9 +591,7 @@ class ModelTableView(QTableView):
 
         run_action = QAction("Run (Chat)…", self)
         can_run = (
-            compatible
-            and getattr(fit, "installed", False)
-            and fit.fit_level != FitLevel.TOO_TIGHT
+            compatible and getattr(fit, "installed", False) and fit.fit_level != FitLevel.TOO_TIGHT
         )
         run_action.setEnabled(can_run)
         run_action.triggered.connect(lambda: self.run_requested.emit(fit))
@@ -634,18 +632,18 @@ class ModelTableView(QTableView):
     def set_default_column_widths(self):
         """Set sensible default column widths."""
         widths = {
-            0: 36,   # Checkbox
+            0: 36,  # Checkbox
             1: 250,  # Model Name
             2: 120,  # Provider
             3: 110,  # Params (PARAMETERS)
             4: 125,  # Score (OVERALL SCORE)
-            5: 85,   # TPS (EST. TPS)
+            5: 85,  # TPS (EST. TPS)
             6: 120,  # Quant (QUANTIZATION)
             7: 100,  # Disk (DISK SIZE)
             8: 100,  # Run Mode (RUN TYPE)
             9: 110,  # Mem % (RAM USAGE)
-            10: 135, # Context (CONTEXT LENGTH)
-            11: 120, # Fit (FIT QUALITY)
+            10: 135,  # Context (CONTEXT LENGTH)
+            11: 120,  # Fit (FIT QUALITY)
         }
         for col, width in widths.items():
             self.setColumnWidth(col, width)

@@ -24,6 +24,11 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Format check (ruff format)
+        # Formatting is not negotiable in review: hand-wrapping a long line to
+        # satisfy E501 is what produced the QSS brace bug fixed in ff7e243.
+        run: ruff format --check .
+
       - name: Type check (mypy, advisory)
         # Advisory until the Qt-stub union-attr findings are worked through;
         # see the "mypy" note in CONTRIBUTING.md.

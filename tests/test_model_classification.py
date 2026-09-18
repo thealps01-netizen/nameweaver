@@ -107,8 +107,11 @@ def test_pc_comfort_reads():
     from scoring import FitLevel, ModelFit, RunMode, pc_comfort
 
     effortless = ModelFit(
-        model=None, fit_level=FitLevel.PERFECT, run_mode=RunMode.GPU,
-        utilization_pct=15, estimated_tps=1600,
+        model=None,
+        fit_level=FitLevel.PERFECT,
+        run_mode=RunMode.GPU,
+        utilization_pct=15,
+        estimated_tps=1600,
     )
     assert pc_comfort(effortless)[1] == "effortless"
 
@@ -116,8 +119,11 @@ def test_pc_comfort_reads():
     assert pc_comfort(too_tight)[1] == "too_much"
 
     offload = ModelFit(
-        model=None, fit_level=FitLevel.GOOD, run_mode=RunMode.CPU_OFFLOAD,
-        utilization_pct=90, estimated_tps=8,
+        model=None,
+        fit_level=FitLevel.GOOD,
+        run_mode=RunMode.CPU_OFFLOAD,
+        utilization_pct=90,
+        estimated_tps=8,
     )
     assert pc_comfort(offload)[1] == "heavy"
 
@@ -125,18 +131,22 @@ def test_pc_comfort_reads():
 def test_runnability_traffic_light():
     from scoring import FitLevel, ModelFit, RunMode, runnability
 
-    green = ModelFit(model=LlmModel(name="m", format="gguf"),
-                     fit_level=FitLevel.GOOD, run_mode=RunMode.GPU)
+    green = ModelFit(
+        model=LlmModel(name="m", format="gguf"), fit_level=FitLevel.GOOD, run_mode=RunMode.GPU
+    )
     assert runnability(green)[1] == "green"
 
-    yellow = ModelFit(model=LlmModel(name="m", format="gguf"),
-                      fit_level=FitLevel.MARGINAL, run_mode=RunMode.CPU_OFFLOAD)
+    yellow = ModelFit(
+        model=LlmModel(name="m", format="gguf"),
+        fit_level=FitLevel.MARGINAL,
+        run_mode=RunMode.CPU_OFFLOAD,
+    )
     assert runnability(yellow)[1] == "yellow"
 
-    bad_format = ModelFit(model=LlmModel(name="m", format="awq"),
-                          fit_level=FitLevel.GOOD, run_mode=RunMode.GPU)
+    bad_format = ModelFit(
+        model=LlmModel(name="m", format="awq"), fit_level=FitLevel.GOOD, run_mode=RunMode.GPU
+    )
     assert runnability(bad_format)[1] == "red"
 
-    too_tight = ModelFit(model=LlmModel(name="m", format="gguf"),
-                         fit_level=FitLevel.TOO_TIGHT)
+    too_tight = ModelFit(model=LlmModel(name="m", format="gguf"), fit_level=FitLevel.TOO_TIGHT)
     assert runnability(too_tight)[1] == "red"

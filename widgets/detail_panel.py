@@ -113,7 +113,10 @@ class ScoreBar(QWidget):
             # Value text (shows target value, not animated)
             painter.setPen(QPen(QColor(self._color)))
             painter.drawText(
-                bar_x + bar_w + 6, 0, 40, h,
+                bar_x + bar_w + 6,
+                0,
+                40,
+                h,
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                 f"{self._value:.0f}",
             )
@@ -261,14 +264,14 @@ class DetailPanel(QWidget):
         self._copy_btn.setEnabled(True)
         # Run only if the format is runnable, it's installed, and it fits.
         can_run = (
-            compatible
-            and getattr(fit, "installed", False)
-            and fit.fit_level != FitLevel.TOO_TIGHT
+            compatible and getattr(fit, "installed", False) and fit.fit_level != FitLevel.TOO_TIGHT
         )
         self._run_btn.setEnabled(can_run)
         self._run_btn.setToolTip(
-            "Chat with this model" if can_run
-            else incompatible_hint if not compatible
+            "Chat with this model"
+            if can_run
+            else incompatible_hint
+            if not compatible
             else "Install the model first via Download"
         )
 
@@ -282,9 +285,7 @@ class DetailPanel(QWidget):
         # Meta
         caps = ", ".join(model.capabilities) if model.capabilities else ""
         caps_text = f" | {caps}" if caps else ""
-        self._meta_label.setText(
-            f"{model.provider} | {model.use_case.capitalize()}{caps_text}"
-        )
+        self._meta_label.setText(f"{model.provider} | {model.use_case.capitalize()}{caps_text}")
 
         # Score with color
         score_color = (
@@ -309,6 +310,7 @@ class DetailPanel(QWidget):
             bar.update()
 
         from PyQt6.QtCore import QTimer
+
         QTimer.singleShot(30, lambda: self._animate_bars(sc, bar_color))
 
         # Fit level color
@@ -337,13 +339,20 @@ class DetailPanel(QWidget):
         # Size class + PC comfort (small-vs-large + how hard this PC works)
         size_label, size_key = size_class(params)
         size_color = {
-            "tiny": c.good, "small": c.good, "medium": c.fg,
-            "large": c.warning, "xl": c.error, "huge": c.error,
+            "tiny": c.good,
+            "small": c.good,
+            "medium": c.fg,
+            "large": c.warning,
+            "xl": c.error,
+            "huge": c.error,
         }.get(size_key, c.fg_muted)
         comfort_label, comfort_key = pc_comfort(fit)
         comfort_color = {
-            "effortless": c.good, "comfortable": c.good,
-            "demanding": c.warning, "heavy": c.warning, "too_much": c.error,
+            "effortless": c.good,
+            "comfortable": c.good,
+            "demanding": c.warning,
+            "heavy": c.warning,
+            "too_much": c.error,
         }.get(comfort_key, c.fg)
 
         ctx = model.ctx_length
@@ -357,14 +366,13 @@ class DetailPanel(QWidget):
         moe_text = ""
         if model.is_moe():
             moe_text = (
-                f'<br><b>Architecture:</b> MoE ({model.expert_count} experts, '
-                f'{model.active_experts} active)'
+                f"<br><b>Architecture:</b> MoE ({model.expert_count} experts, "
+                f"{model.active_experts} active)"
             )
 
         # Runnability (traffic light) + which engine(s) have it installed.
         runs_label, runs_key = runnability(fit)
-        runs_color = {"green": c.good, "yellow": c.warning,
-                      "red": c.error}.get(runs_key, c.fg)
+        runs_color = {"green": c.good, "yellow": c.warning, "red": c.error}.get(runs_key, c.fg)
         runs_note = ""
         if not is_engine_compatible(model.format):
             runs_note = (
@@ -373,9 +381,7 @@ class DetailPanel(QWidget):
             )
         installed_in = getattr(fit, "installed_providers", []) or []
         if installed_in:
-            installed_html = (
-                f'<span style="color:{c.good};">{", ".join(installed_in)}</span>'
-            )
+            installed_html = f'<span style="color:{c.good};">{", ".join(installed_in)}</span>'
         else:
             installed_html = f'<span style="color:{c.fg_muted};">Not installed</span>'
 
@@ -400,8 +406,8 @@ class DetailPanel(QWidget):
             <td><span style="color:{fit_color};">{fit.fit_level.value}</span>
             <span style="color:{c.fg_muted};"> — {fit.fit_level.short_hint}</span></td></tr>
 <tr><td style="color:{c.fg_muted};">Est. TPS:</td><td>{fit.estimated_tps:.1f} tok/s</td></tr>
-        <tr><td style="color:{c.fg_muted};">License:</td><td>{model.license or 'Unknown'}</td></tr>
-<tr><td style="color:{c.fg_muted};">Released:</td><td>{model.release_date or 'Unknown'}</td></tr>
+        <tr><td style="color:{c.fg_muted};">License:</td><td>{model.license or "Unknown"}</td></tr>
+<tr><td style="color:{c.fg_muted};">Released:</td><td>{model.release_date or "Unknown"}</td></tr>
         </table>
         {moe_text}
         """

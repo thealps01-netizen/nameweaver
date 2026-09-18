@@ -89,9 +89,7 @@ class ComparisonDialog(QDialog):
         header_layout.setSpacing(12)
 
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(
-            qta.icon("mdi6.scale-balance", color=c.accent).pixmap(QSize(36, 36))
-        )
+        icon_lbl.setPixmap(qta.icon("mdi6.scale-balance", color=c.accent).pixmap(QSize(36, 36)))
         icon_lbl.setFixedSize(40, 40)
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_lbl.setStyleSheet("background: transparent; border: none;")
@@ -247,8 +245,7 @@ class ComparisonDialog(QDialog):
         sep.setFixedWidth(1)
         # Margin fix to be same height
         sep.setStyleSheet(
-            f"background: {self._theme.border}; border: none;"
-            " margin-top: 4px; margin-bottom: 4px;"
+            f"background: {self._theme.border}; border: none; margin-top: 4px; margin-bottom: 4px;"
         )
         return sep
 
@@ -320,6 +317,7 @@ class ComparisonDialog(QDialog):
 
             # Animate the bar slightly later so it feels cohesive
             from PyQt6.QtCore import QTimer
+
             QTimer.singleShot(150 + (i * 50), lambda b=bar, v=val: b.set_value(v))
 
             val_lbl = QLabel(f"{val:.1f}")
@@ -360,15 +358,19 @@ class ComparisonDialog(QDialog):
 
             if colorize and label == "Fit Level":
                 fit_colors = {
-                    "Perfect": c.fit_perfect, "Good": c.fit_good,
-                    "Marginal": c.fit_marginal, "Too Tight": c.fit_tight,
+                    "Perfect": c.fit_perfect,
+                    "Good": c.fit_good,
+                    "Marginal": c.fit_marginal,
+                    "Too Tight": c.fit_tight,
                 }
                 color = fit_colors.get(val, c.fg)
                 style = f"font-size: 12px; font-weight: 700; color: {color};"
             elif colorize and label == "Run Mode":
                 mode_colors = {
-                    "GPU": c.mode_gpu, "MoE Offload": c.mode_moe,
-                    "CPU Offload": c.mode_offload, "CPU Only": c.mode_cpu,
+                    "GPU": c.mode_gpu,
+                    "MoE Offload": c.mode_moe,
+                    "CPU Offload": c.mode_offload,
+                    "CPU Only": c.mode_cpu,
                 }
                 color = mode_colors.get(val, c.fg)
                 style = f"font-size: 12px; color: {color};"

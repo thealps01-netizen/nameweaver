@@ -67,8 +67,7 @@ class _CodeBlock(QFrame):
         self._code = code
         c = theme
         self.setStyleSheet(
-            f"QFrame {{ background:{c.bg}; border:1px solid {c.border};"
-            f" border-radius:8px; }}"
+            f"QFrame {{ background:{c.bg}; border:1px solid {c.border}; border-radius:8px; }}"
         )
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -78,8 +77,7 @@ class _CodeBlock(QFrame):
         bar.setContentsMargins(10, 4, 6, 4)
         tag = QLabel(lang or "code")
         tag.setStyleSheet(
-            f"color:{c.fg_muted}; font-size:10px;"
-            " background:transparent; border:none;"
+            f"color:{c.fg_muted}; font-size:10px; background:transparent; border:none;"
         )
         bar.addWidget(tag)
         bar.addStretch(1)
@@ -121,8 +119,9 @@ class _CodeBlock(QFrame):
 class _Bubble(QFrame):
     """One chat message bubble (avatar + content + optional action row)."""
 
-    def __init__(self, role: str, theme, on_copy=None, on_regen=None,
-                 on_feedback=None, parent=None):
+    def __init__(
+        self, role: str, theme, on_copy=None, on_regen=None, on_feedback=None, parent=None
+    ):
         super().__init__(parent)
         self._role = role
         self._theme = theme
@@ -345,8 +344,7 @@ class ChatDialog(QDialog):
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setStyleSheet(
-            f"QScrollArea {{ background:{c.bg}; border:1px solid {c.border};"
-            f" border-radius:10px; }}"
+            f"QScrollArea {{ background:{c.bg}; border:1px solid {c.border}; border-radius:10px; }}"
         )
         self._msg_container = QWidget()
         self._msg_layout = QVBoxLayout(self._msg_container)
@@ -390,9 +388,7 @@ class ChatDialog(QDialog):
         row = QHBoxLayout()
         self._attach_btn = QPushButton(" Image")
         self._attach_btn.setIcon(qta.icon("mdi6.image-outline", color=c.fg_muted))
-        self._attach_btn.setToolTip(
-            "Attach an image (or drag & drop). Best with vision models."
-        )
+        self._attach_btn.setToolTip("Attach an image (or drag & drop). Best with vision models.")
         self._attach_btn.clicked.connect(self._attach_image)
         row.addWidget(self._attach_btn)
         self._vision_warned = False
@@ -457,7 +453,8 @@ class ChatDialog(QDialog):
         if not self._supports_vision and not self._vision_warned:
             self._vision_warned = True
             QMessageBox.information(
-                self, "Image",
+                self,
+                "Image",
                 "This model isn't detected as a vision model, so it may ignore "
                 "the image. Attaching anyway — use a vision model (e.g. "
                 "qwen2.5vl, llava, gemma3-vision) to actually read images.",
@@ -486,13 +483,18 @@ class ChatDialog(QDialog):
         return sb.value() >= sb.maximum() - 8
 
     def _scroll_to_end(self):
-        QTimer.singleShot(0, lambda: self._scroll.verticalScrollBar().setValue(
-            self._scroll.verticalScrollBar().maximum()))
+        QTimer.singleShot(
+            0,
+            lambda: self._scroll.verticalScrollBar().setValue(
+                self._scroll.verticalScrollBar().maximum()
+            ),
+        )
 
     def _add_bubble(self, role: str) -> _Bubble:
         self._empty.setVisible(False)
-        bubble = _Bubble(role, self._theme, on_regen=self._regenerate,
-                         on_feedback=self._on_feedback)
+        bubble = _Bubble(
+            role, self._theme, on_regen=self._regenerate, on_feedback=self._on_feedback
+        )
         roww = QWidget()
         rl = QHBoxLayout(roww)
         rl.setContentsMargins(0, 0, 0, 0)
@@ -643,6 +645,7 @@ class ChatDialog(QDialog):
 
     def _on_feedback(self, kind: str):
         import logging
+
         logging.getLogger(__name__).info("Chat feedback: %s", kind)
 
     def closeEvent(self, event):

@@ -119,8 +119,7 @@ def _find_ollama_binary() -> str | None:
             base = os.environ.get(base_env)
             if not base:
                 continue
-            for rel in (("Ollama", "ollama.exe"),
-                        ("Programs", "Ollama", "ollama.exe")):
+            for rel in (("Ollama", "ollama.exe"), ("Programs", "Ollama", "ollama.exe")):
                 exe = Path(base).joinpath(*rel)
                 if exe.exists():
                     return str(exe)
@@ -215,17 +214,19 @@ def open_lmstudio_app() -> bool:
 
     try:
         if sys.platform == "darwin":
-            subprocess.Popen(["open", "-a", "LM Studio"],
-                             stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                ["open", "-a", "LM Studio"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
             return True
         if sys.platform == "win32":
             for base_env in ("LOCALAPPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)"):
                 base = os.environ.get(base_env)
                 if not base:
                     continue
-                for rel in (("LM Studio", "LM Studio.exe"),
-                            ("Programs", "LM Studio", "LM Studio.exe")):
+                for rel in (
+                    ("LM Studio", "LM Studio.exe"),
+                    ("Programs", "LM Studio", "LM Studio.exe"),
+                ):
                     exe = Path(base).joinpath(*rel)
                     if exe.exists():
                         _popen_detached([str(exe)])
@@ -251,9 +252,9 @@ def start_docker_model_runner() -> bool:
 
     try:
         if sys.platform == "darwin":
-            subprocess.Popen(["open", "-a", "Docker"],
-                             stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                ["open", "-a", "Docker"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
         elif sys.platform == "win32":
             # Docker Desktop service — try common install dir
             candidates = [
@@ -269,9 +270,7 @@ def start_docker_model_runner() -> bool:
         logger.warning("start_docker_model_runner failed: %s", exc)
         return False
 
-    return _wait_for_http_ready(
-        "http://localhost:12434/engines/v1/models", timeout=20.0
-    )
+    return _wait_for_http_ready("http://localhost:12434/engines/v1/models", timeout=20.0)
 
 
 # Dispatch table — UI passes ``start_action`` string from ProviderStatus.
@@ -334,11 +333,9 @@ def stop_ollama_service() -> bool:
                 timeout=10,
                 check=False,
             )
-            _run(["pkill", "-x", "ollama"],
-                           capture_output=True, timeout=5, check=False)
+            _run(["pkill", "-x", "ollama"], capture_output=True, timeout=5, check=False)
         else:
-            _run(["pkill", "-x", "ollama"],
-                           capture_output=True, timeout=5, check=False)
+            _run(["pkill", "-x", "ollama"], capture_output=True, timeout=5, check=False)
     except (subprocess.TimeoutExpired, OSError) as exc:
         logger.warning("stop_ollama_service failed: %s", exc)
         return False

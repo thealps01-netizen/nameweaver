@@ -38,20 +38,41 @@ class HardwareSimPanel(QWidget):
 
         # RAM row
         self._ram_spin = self._make_spin_row(
-            layout, "mdi6.memory", "RAM",
-            QDoubleSpinBox, 1.0, 2048.0, " GB", 1, 4.0,
+            layout,
+            "mdi6.memory",
+            "RAM",
+            QDoubleSpinBox,
+            1.0,
+            2048.0,
+            " GB",
+            1,
+            4.0,
         )
 
         # VRAM row
         self._vram_spin = self._make_spin_row(
-            layout, "mdi6.expansion-card", "VRAM",
-            QDoubleSpinBox, 0.0, 512.0, " GB", 1, 2.0,
+            layout,
+            "mdi6.expansion-card",
+            "VRAM",
+            QDoubleSpinBox,
+            0.0,
+            512.0,
+            " GB",
+            1,
+            2.0,
         )
 
         # CPU cores row
         self._cpu_spin = self._make_spin_row(
-            layout, "mdi6.cpu-64-bit", "CPU",
-            QSpinBox, 1, 256, " cores", 0, 1,
+            layout,
+            "mdi6.cpu-64-bit",
+            "CPU",
+            QSpinBox,
+            1,
+            256,
+            " cores",
+            0,
+            1,
         )
 
         layout.addSpacing(6)
@@ -83,8 +104,18 @@ class HardwareSimPanel(QWidget):
         layout.addLayout(btn_layout)
         layout.addStretch()
 
-    def _make_spin_row(self, parent_layout, icon_name, label_text,
-                       spin_class, min_val, max_val, suffix, decimals, step):
+    def _make_spin_row(
+        self,
+        parent_layout,
+        icon_name,
+        label_text,
+        spin_class,
+        min_val,
+        max_val,
+        suffix,
+        decimals,
+        step,
+    ):
         """Create a labelled spin-box row with an icon and +/- buttons."""
         row = QHBoxLayout()
         row.setSpacing(8)
@@ -181,6 +212,7 @@ class HardwareSimPanel(QWidget):
 
     def set_theme(self, theme_name: str):
         from themes import get_theme
+
         c = get_theme(theme_name)
 
         self._apply_btn.setIcon(

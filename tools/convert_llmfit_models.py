@@ -93,9 +93,16 @@ def convert_model(entry: dict) -> dict | None:
 
     # Skip test/internal models
     name_lower = name.lower()
-    if any(skip in name_lower for skip in (
-        "tiny-random", "peft-internal", "test-", "dummy", "debug",
-    )):
+    if any(
+        skip in name_lower
+        for skip in (
+            "tiny-random",
+            "peft-internal",
+            "test-",
+            "dummy",
+            "debug",
+        )
+    ):
         return None
 
     caps = map_capabilities(entry.get("capabilities", []))

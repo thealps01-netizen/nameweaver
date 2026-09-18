@@ -44,9 +44,9 @@ class FitLevel(str, Enum):
     def short_hint(self) -> str:
         """One-line descriptor with the utilization threshold."""
         return {
-            FitLevel.PERFECT:   "plenty of headroom (≤60%)",
-            FitLevel.GOOD:      "comfortable, small headroom (60–80%)",
-            FitLevel.MARGINAL:  "barely fits (80–95%)",
+            FitLevel.PERFECT: "plenty of headroom (≤60%)",
+            FitLevel.GOOD: "comfortable, small headroom (60–80%)",
+            FitLevel.MARGINAL: "barely fits (80–95%)",
             FitLevel.TOO_TIGHT: "doesn't fit in memory (>95%)",
         }[self]
 
@@ -262,8 +262,7 @@ def _determine_run_mode(
                 effective_vram + specs.total_ram_gb * _RAM_USABLE_FRACTION, 1
             )
             result.notes.append(
-                f"Active experts ({active_params:.1f}B params) fit in VRAM, "
-                f"rest offloaded to RAM"
+                f"Active experts ({active_params:.1f}B params) fit in VRAM, rest offloaded to RAM"
             )
             return
 
@@ -275,9 +274,7 @@ def _determine_run_mode(
         result.run_mode = RunMode.CPU_OFFLOAD
         result.memory_available_gb = round(total_mem, 1)
         gpu_pct = effective_vram / total_mem * 100 if total_mem > 0 else 0.0
-        result.notes.append(
-            f"~{gpu_pct:.0f}% GPU, rest CPU offloaded (quality/speed trade-off)"
-        )
+        result.notes.append(f"~{gpu_pct:.0f}% GPU, rest CPU offloaded (quality/speed trade-off)")
         return
 
     # CPU only — use full usable RAM as budget
@@ -304,9 +301,7 @@ def _select_best_quant(result: ModelFit, model: LlmModel, specs: SystemSpecs) ->
     elif result.run_mode == RunMode.CPU_OFFLOAD:
         # Cap at VRAM + 30% RAM — past that, every RAM-resident byte
         # costs several ms/token. Prefer smaller quants here.
-        effective_vram = (
-            enabled_vram_gb(specs) if specs.gpus else specs.total_gpu_vram_gb
-        )
+        effective_vram = enabled_vram_gb(specs) if specs.gpus else specs.total_gpu_vram_gb
         budget = effective_vram + specs.total_ram_gb * 0.30
     elif result.run_mode == RunMode.CPU_ONLY:
         # Already the usable-RAM-fraction; don't inflate further.
@@ -429,6 +424,7 @@ def _cpu_tps_estimate(params: float, speed_mult: float, specs: SystemSpecs) -> f
 # ---------------------------------------------------------------------------
 # PC comfort — how easily the user's machine runs a given model
 # ---------------------------------------------------------------------------
+
 
 def pc_comfort(fit: "ModelFit") -> tuple[str, str]:
     """How comfortably this PC runs the model → (label, key).
@@ -589,12 +585,12 @@ def _fit_score(utilization_pct: float, fit_level: FitLevel) -> float:
 
 USE_CASE_WEIGHTS: dict[UseCase, tuple[float, float, float]] = {
     #                      quality  speed  fit
-    UseCase.GENERAL:      (0.40,   0.30,  0.30),
-    UseCase.CODING:       (0.60,   0.20,  0.20),
-    UseCase.REASONING:    (0.55,   0.15,  0.30),
-    UseCase.CHAT:         (0.35,   0.40,  0.25),
-    UseCase.MULTIMODAL:   (0.45,   0.25,  0.30),
-    UseCase.EMBEDDING:    (0.25,   0.45,  0.30),
+    UseCase.GENERAL: (0.40, 0.30, 0.30),
+    UseCase.CODING: (0.60, 0.20, 0.20),
+    UseCase.REASONING: (0.55, 0.15, 0.30),
+    UseCase.CHAT: (0.35, 0.40, 0.25),
+    UseCase.MULTIMODAL: (0.45, 0.25, 0.30),
+    UseCase.EMBEDDING: (0.25, 0.45, 0.30),
 }
 
 
@@ -629,11 +625,7 @@ def _weighted_score(
         s_w *= scale
         f_w *= scale
 
-    score = (
-        components.quality * q_w
-        + components.speed * s_w
-        + components.fit * f_w
-    )
+    score = components.quality * q_w + components.speed * s_w + components.fit * f_w
     return round(min(score, 100.0), 1)
 
 
@@ -644,9 +636,7 @@ def apply_preference(fits: list[ModelFit], preference: float) -> None:
     quality/speed bias changes. After this, call ``rank_models`` to re-sort.
     """
     for fit in fits:
-        fit.score = _weighted_score(
-            fit.score_components, fit.model.get_use_case(), preference
-        )
+        fit.score = _weighted_score(fit.score_components, fit.model.get_use_case(), preference)
 
 
 # ---------------------------------------------------------------------------
