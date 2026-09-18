@@ -14,6 +14,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 - **AWQ/GPTQ girişi bir motor modeli sahiplenemez**: eşleştirmeye yalnız motorların çalıştırabildiği formatlar girer ve eşleşme satır başına uygulanır — aynı adı taşıyan uyumlu kardeşi kendi eşleşmesini uyumsuz satıra devredemez.
 
 
+### Added
+- **İnen GGUF, HuggingFace'in yayınladığı SHA256 ile doğrulanıyor**: hash repo listesinden (`lfs.oid`) okunup indirmeye geçiriliyor; uyuşmazsa dosya silinir ve hiçbir şey kurulmaz, hash yoksa sonuç açıkça "not verified (no published hash)" der. `download_gguf` bu kontrolü zaten destekliyordu ama **hiçbir çağıran hash vermiyordu** — yani her GGUF doğrulanmadan iniyordu.
+
 ## [0.1.31] - 2026-09-18
 ### Added
 - **My Models sayfası**: indirdiğin ve çalıştırabildiğin modeller katalogdan ayrı bir sayfada. Liste **motorların kendi bildirdiğinden** üretilir (Ollama `/api/tags`: boyut, parametre, quant, motorun kendi `capabilities`'i; LM Studio `/v1/models`; sunucu kapalıysa disk taraması) — katalog yalnızca zenginleştirme, eşleşme tutmazsa satır "katalogda yok" der ve yine çalıştırılabilir. **Run artık burada** (satır başına bir tık) ve sağ tık menüsünde kısayol olarak duruyor; katalog detayındaki buton "Run →" olup seni bu sayfaya getiriyor. Motor kapalıysa satır yerine "başlat" uyarısı görünür; başlık altında "Refresh" var.

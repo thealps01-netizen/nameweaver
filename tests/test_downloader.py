@@ -1,5 +1,6 @@
 """Tests for model downloaders — Ollama pull + HF GGUF download."""
 
+import hashlib
 import json
 from unittest.mock import patch
 
@@ -150,9 +151,13 @@ class TestDownloadGguf:
 
 
 class TestListGgufFiles:
-    def test_list_returns_gguf_only(self):
+    def test_list_returns_gguf_only_with_the_published_hash(self):
         data = [
-            {"path": "model-q4.gguf", "size": 5_000_000_000},
+            {
+                "path": "model-q4.gguf",
+                "size": 5_000_000_000,
+                "lfs": {"oid": "ab" * 32, "size": 5_000_000_000, "pointerSize": 134},
+            },
             {"path": "model-q8.gguf", "size": 8_000_000_000},
             {"path": "README.md", "size": 1024},
             {"path": "config.json", "size": 512},
@@ -162,6 +167,10 @@ class TestListGgufFiles:
             files = downloader.list_gguf_files("org/repo")
         assert len(files) == 2
         assert all(f["path"].endswith(".gguf") for f in files)
+        # HuggingFace publishes a SHA256 for every LFS file; a file without one
+        # must report "no hash" rather than an empty-but-verified value.
+        assert files[0]["sha256"] == "ab" * 32
+        assert files[1]["sha256"] == ""
 
     def test_list_invalid_repo(self):
         assert downloader.list_gguf_files("no-slash") == []
@@ -172,3 +181,51 @@ class TestListGgufFiles:
             side_effect=ConnectionError("x"),
         ):
             assert downloader.list_gguf_files("org/repo") == []
+
+
+class TestPublisherHash:
+    """Downloads are checked against the hash HuggingFace publishes (§ security).
+
+    The downloader always supported ``expected_sha256``; nobody ever passed one,
+    so every GGUF landed unverified.
+    """
+
+    def test_the_hash_is_read_off_the_listing(self):
+        files = [{"path": "a.gguf", "sha256": "cd" * 32}, {"path": "b.gguf", "sha256": ""}]
+
+        assert downloader.sha256_for_file(files, "a.gguf") == "cd" * 32
+
+    def test_an_unknown_file_has_no_hash(self):
+        assert downloader.sha256_for_file([{"path": "a.gguf"}], "other.gguf") == ""
+
+    def test_a_matching_hash_says_so(self, tmp_path):
+        body = b"weights"
+        digest = hashlib.sha256(body).hexdigest()
+        resp = _FakeResponse(body=body, headers={"Content-Length": str(len(body))})
+        messages = []
+
+        with patch("downloader.urllib.request.urlopen", return_value=resp):
+            path = downloader.download_gguf(
+                "org/repo",
+                "f.gguf",
+                tmp_path,
+                expected_sha256=digest,
+                on_progress=lambda _p, m: messages.append(m),
+            )
+
+        assert path is not None
+        assert any("SHA256 verified" in m for m in messages)
+
+    def test_no_published_hash_is_reported_as_unverified(self, tmp_path):
+        body = b"weights"
+        resp = _FakeResponse(body=body, headers={"Content-Length": str(len(body))})
+        messages = []
+
+        with patch("downloader.urllib.request.urlopen", return_value=resp):
+            path = downloader.download_gguf(
+                "org/repo", "f.gguf", tmp_path, on_progress=lambda _p, m: messages.append(m)
+            )
+
+        assert path is not None
+        assert any("not verified" in m for m in messages)
+        assert not any("SHA256 verified" in m for m in messages)

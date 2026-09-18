@@ -13,6 +13,7 @@ import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Callable
 
@@ -210,7 +211,11 @@ def download_gguf(
                     expected_sha256,
                     digest,
                 )
-                emit(0, "SHA256 verification failed")
+                emit(
+                    0,
+                    "SHA256 verification failed — the file does not match the hash "
+                    "HuggingFace publishes for it. Deleted; nothing was installed.",
+                )
                 try:
                     tmp.unlink()
                 except OSError:
@@ -219,7 +224,12 @@ def download_gguf(
 
         # Atomic rename
         tmp.replace(dest)
-        emit(100, f"Saved to {dest}")
+        if expected_sha256:
+            emit(100, f"Saved to {dest} · SHA256 verified")
+        else:
+            # Say so rather than implying a check that never happened.
+            logger.warning("No published hash for %s — saved without verification", filename)
+            emit(100, f"Saved to {dest} · not verified (no published hash)")
         return dest
 
     except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as exc:
@@ -256,11 +266,29 @@ def list_gguf_files(repo_id: str, token: str = "") -> list[dict]:
     if not isinstance(data, list):
         return []
 
-    return [
-        {
-            "path": item.get("path", ""),
-            "size": item.get("size", 0),
-        }
-        for item in data
-        if isinstance(item, dict) and item.get("path", "").lower().endswith(".gguf")
-    ]
+    files: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path", ""))
+        if not path.lower().endswith(".gguf"):
+            continue
+        lfs = item.get("lfs")
+        files.append(
+            {
+                "path": path,
+                "size": item.get("size", 0),
+                # HuggingFace puts a SHA256 in every LFS entry's oid. An empty
+                # hash means "no published hash", never "verified".
+                "sha256": str(lfs.get("oid", "")) if isinstance(lfs, dict) else "",
+            }
+        )
+    return files
+
+
+def sha256_for_file(files: Iterable[dict], filename: str) -> str:
+    """The publisher's SHA256 for one file of a repo listing ('' when absent)."""
+    for entry in files:
+        if entry.get("path") == filename:
+            return str(entry.get("sha256") or "")
+    return ""

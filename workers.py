@@ -269,6 +269,7 @@ class DownloadWorker(QThread):
         filename: str = "",
         dest_dir=None,
         token: str = "",
+        expected_sha256: str = "",
         parent=None,
     ):
         super().__init__(parent)
@@ -278,6 +279,7 @@ class DownloadWorker(QThread):
         self._filename = filename
         self._dest_dir = dest_dir
         self._token = token
+        self._expected_sha256 = expected_sha256
         self._cancel = False
         # Track last status message so a failure surfaces the actual cause
         # (e.g. "Error: pull model manifest: file does not exist") instead
@@ -321,6 +323,7 @@ class DownloadWorker(QThread):
                     token=self._token,
                     on_progress=on_prog,
                     should_cancel=self._should_cancel,
+                    expected_sha256=self._expected_sha256 or None,
                 )
                 if path is not None:
                     msg = str(path)
