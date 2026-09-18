@@ -5,6 +5,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ## [Unreleased]
+
+## [0.1.32] - 2026-09-18
 ### Changed
 - **Katalog artık "kurulu" iddia etmiyor**: Installed filtresi, detay panelindeki "Installed:" satırı, "Run →" butonu (ve tablodaki sağ tık Run), "kurulu önce" sıralaması kaldırıldı. Ölçülen sebep: tek bir kurulu dosya (`qwen2.5:3b`) üç katalog satırını "kurulu" gösteriyordu (`Qwen2.5-3B`, `Qwen2.5-3B-Instruct`, `Qwen2.5-3B-Instruct-AWQ`) — üstelik AWQ satırı yerelde çalışmayan bir format olduğu hâlde. Katalog şimdi yalnızca "indirebilir miyim + donanımıma uyar mı" sorusunu yanıtlıyor; "neye sahibim, neyi çalıştırabilirim" My Models sayfasında. Katalog satırındaki **Runs** trafik ışığı duruyor (hangi motorun çalıştırabileceğini söyler, kurulu olduğunu değil).
 
