@@ -44,8 +44,6 @@ from dialogs import AboutDialog, AlertDialog
 from hw import SystemSpecs
 from models import (
     LlmModel,
-    is_reupload,
-    is_trusted_source,
     load_all_models,
 )
 from providers import ProviderState, ProviderStatus
@@ -58,6 +56,7 @@ from widgets.comparison import ComparisonDialog
 from widgets.detail_panel import DetailPanel
 from widgets.download_dialog import (
     DownloadDialog,
+    DownloadSourceDialog,
     GgufMirrorPickerDialog,
     GgufPickerDialog,
 )
@@ -1992,149 +1991,76 @@ class MainWindow(QMainWindow):
         return _dir()
 
     def _on_download_requested(self, fit: ModelFit):
-        """User clicked Download in the detail panel."""
+        """User clicked Download in the detail panel.
+
+        One dialog settles where from and as what; the trust warning is in it as a
+        required checkbox rather than a separate box in front of it.
+        """
         model = fit.model
+        dialog = DownloadSourceDialog(model, list(self._providers), self._config.theme, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
 
-        # Safety: warn before downloading files from an unverified publisher.
-        if not is_trusted_source(model):
-            origin = (
-                f"\n\nThis appears to be a community re-upload of:\n{model.base_model}"
-                if is_reupload(model)
-                else ""
-            )
-            resp = QMessageBox.warning(
-                self,
-                "Unverified source",
-                f"'{model.provider}' is not a recognised first-party publisher.\n"
-                f"You would be downloading and running model files from this source."
-                f"{origin}\n\nContinue anyway?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if resp != QMessageBox.StandardButton.Yes:
-                return
-
-        # Determine source: offer whichever engines are installed
-        from PyQt6.QtWidgets import QInputDialog
-
-        def _state_for(name: str) -> ProviderState:
-            for p in self._providers:
-                if p.name.lower() == name.lower():
-                    return p.state
-            return ProviderState.NOT_INSTALLED
-
-        ollama_state = _state_for("ollama")
-        lmstudio_state = _state_for("lm studio")
-
-        # Build options labelled so user sees which engine is ready/off
-        def _lbl(base: str, state: ProviderState) -> str:
-            if state == ProviderState.READY:
-                return f"{base}  ✓"
-            if state == ProviderState.INSTALLED_OFF:
-                return f"{base}  (off — will be started first)"
-            return base
-
-        choices: list[tuple[str, str]] = []  # (key, label)
-        # READY engines first, then installed-off, then generic fallback
-        for key, name, state in (
-            ("ollama", "Ollama pull", ollama_state),
-            ("lmstudio", "LM Studio (GGUF)", lmstudio_state),
-        ):
-            if state != ProviderState.NOT_INSTALLED:
-                choices.append((key, _lbl(name, state)))
-        # Sort: READY (has ✓) first
-        choices.sort(key=lambda kv: 0 if "✓" in kv[1] else 1)
-        choices.append(("hf", "HuggingFace GGUF (custom folder)"))
-
-        labels = [lbl for _, lbl in choices]
-        if len(labels) == 1:
-            selected_label = labels[0]
-        else:
-            selected_label, ok = QInputDialog.getItem(
-                self,
-                f"Download {model.name}",
-                "Choose download source:",
-                labels,
-                0,
-                False,
-            )
-            if not ok:
-                return
-
-        # Map label back to key
-        choice_key = next((k for k, lbl in choices if lbl == selected_label), "hf")
-
-        def _offer_fallback(reason: str) -> None:
-            """After Ollama fails, offer LM Studio/HF GGUF alternative."""
-            alt_choices: list[tuple[str, str]] = []
-            if lmstudio_state != ProviderState.NOT_INSTALLED:
-                alt_choices.append(("lmstudio", "LM Studio (GGUF)"))
-            alt_choices.append(("hf", "HuggingFace GGUF (custom folder)"))
-
-            msg = (
-                f"Ollama couldn't download this model:\n\n{reason}\n\n"
-                "This model is likely not in the Ollama library. "
-                "Do you want to try downloading it as GGUF instead?"
-            )
-            alt_labels = [lbl for _, lbl in alt_choices]
-            selected, ok2 = QInputDialog.getItem(
-                self,
-                "Alternative source",
-                msg,
-                alt_labels,
-                0,
-                False,
-            )
-            if not ok2:
-                return
-            key = next((k for k, lbl in alt_choices if lbl == selected), "hf")
-            if key == "lmstudio":
-                self._start_lmstudio_download(fit)
-            else:
-                self._start_gguf_download(fit)
-
-        if choice_key == "ollama":
-            # Pre-flight: Ollama running?
-            if ollama_state != ProviderState.READY:
-                reply = QMessageBox.question(
-                    self,
-                    "Ollama is off",
-                    "The Ollama service isn't running right now. "
-                    "Do you want to try starting it before downloading?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                )
-                if reply != QMessageBox.StandardButton.Yes:
-                    return
+        source = dialog.selected_source()
+        if source == "ollama":
+            if dialog.wants_engine_start():
                 from provider_control import start_ollama_service
 
                 if not start_ollama_service():
                     QMessageBox.warning(
                         self,
                         "Failed to start Ollama",
-                        "The Ollama service could not be started. Please start "
-                        "the Ollama app manually or pick another source.",
+                        "The Ollama service could not be started. Please start the "
+                        "Ollama app manually or pick another source.",
                     )
                     return
                 self._refresh_providers()
-            self._start_ollama_pull(model.name, on_not_found=_offer_fallback)
-        elif choice_key == "lmstudio":
+            self._start_ollama_pull(
+                model.name,
+                tag=dialog.selected_id(),
+                on_not_found=lambda reason: self._offer_gguf_fallback(fit, reason),
+            )
+        elif source == "lmstudio":
             self._start_lmstudio_download(fit)
         else:
             self._start_gguf_download(fit)
 
-    def _start_ollama_pull(self, model_name: str, on_not_found=None):
+    def _offer_gguf_fallback(self, fit: ModelFit, reason: str):
+        """A pull failed because the model is not in Ollama's library: offer GGUF."""
         from PyQt6.QtWidgets import QInputDialog
 
-        tag, ok = QInputDialog.getText(
+        options: list[str] = []
+        if any(
+            p.name == "LM Studio" and p.state != ProviderState.NOT_INSTALLED
+            for p in self._providers
+        ):
+            options.append("LM Studio (GGUF)")
+        options.append("HuggingFace GGUF (custom folder)")
+
+        choice, ok = QInputDialog.getItem(
             self,
-            "Ollama Pull",
-            "Enter the Ollama model tag (e.g. 'llama3.1:8b', 'qwen2.5-coder:7b'):",
-            text=self._pick_ollama_candidate(model_name) or "",
+            "Alternative source",
+            f"Ollama couldn't download this model:\n\n{reason}\n\n"
+            "This model is likely not in the Ollama library. "
+            "Download it as GGUF instead?",
+            options,
+            0,
+            False,
         )
-        if not ok or not tag.strip():
+        if not ok:
+            return
+        if choice.startswith("LM Studio"):
+            self._start_lmstudio_download(fit)
+        else:
+            self._start_gguf_download(fit)
+
+    def _start_ollama_pull(self, model_name: str, tag: str = "", on_not_found=None):
+        """Pull one tag into Ollama, showing progress. The tag is the dialog's."""
+        tag = (tag or "").strip()
+        if not tag:
             return
 
-        worker = DownloadWorker(kind=DownloadWorker.KIND_OLLAMA, model_name=tag.strip())
+        worker = DownloadWorker(kind=DownloadWorker.KIND_OLLAMA, model_name=tag)
         dialog = DownloadDialog(worker, title=f"Pulling {tag}", parent=self)
         self._download_workers.append(worker)
         worker.start()

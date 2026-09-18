@@ -7,6 +7,8 @@ import webbrowser
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
@@ -14,11 +16,16 @@ from PyQt6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QRadioButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
+from models import LlmModel, is_reupload, is_trusted_source, ollama_tag_candidates
+from providers import ProviderState, ProviderStatus
+from themes import get_theme
 from workers import DownloadWorker
 
 
@@ -434,3 +441,229 @@ class GgufMirrorPickerDialog(QDialog):
     @property
     def selected_repo(self) -> str:
         return self._selected_repo
+
+
+class DownloadSourceDialog(QDialog):
+    """Where to download from, and as what — one dialog, not a chain of them.
+
+    The old flow asked four questions in sequence: a trust warning, a source list,
+    an "Ollama is off" confirmation, then the tag. Each answer was given before
+    the next question was visible, and two of them were modal interruptions. Here
+    the source, its id field and the trust warning are on one screen: an
+    unverified publisher needs its checkbox ticked, and the id field belongs to
+    the source that has one (Ollama's tag), prefilled with the likely library
+    name but editable.
+    """
+
+    def __init__(
+        self,
+        model: LlmModel,
+        providers: list[ProviderStatus],
+        theme_name: str = "dark",
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._model = model
+        self._providers = list(providers)
+        self._theme = get_theme(theme_name)
+
+        self.setWindowTitle(f"Download {model.name}")
+        self.setMinimumWidth(540)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+
+        title = QLabel(model.name)
+        title.setStyleSheet("font-size: 15px; font-weight: 700;")
+        title.setWordWrap(True)
+        layout.addWidget(title)
+
+        subtitle = " · ".join(
+            part
+            for part in (model.provider, model.parameter_count, (model.format or "").upper())
+            if part
+        )
+        if subtitle:
+            sub = QLabel(subtitle)
+            sub.setStyleSheet(f"color: {self._theme.fg_muted}; font-size: 11px;")
+            layout.addWidget(sub)
+
+        self._check: QCheckBox | None = None
+        if not is_trusted_source(model):
+            layout.addWidget(self._build_warning())
+
+        layout.addWidget(self._build_sources())
+
+        # Ollama's id, in its own row so the other sources do not carry it.
+        self._tag_row = QWidget()
+        tag_layout = QHBoxLayout(self._tag_row)
+        tag_layout.setContentsMargins(0, 0, 0, 0)
+        tag_layout.setSpacing(8)
+        tag_label = QLabel("Ollama tag")
+        tag_label.setStyleSheet(f"color: {self._theme.fg_muted}; font-size: 11px;")
+        tag_layout.addWidget(tag_label)
+        self._tag_combo = QComboBox()
+        self._tag_combo.setEditable(True)
+        self._tag_combo.addItems(ollama_tag_candidates(model.name))
+        self._tag_combo.setToolTip(
+            "The exact tag `ollama pull` receives. Ollama's library names differ from "
+            "HuggingFace ones — edit it if the guess is wrong."
+        )
+        self._tag_combo.currentTextChanged.connect(lambda _t: self._sync())
+        tag_layout.addWidget(self._tag_combo, stretch=1)
+        layout.addWidget(self._tag_row)
+
+        self._detail = QLabel("")
+        self._detail.setWordWrap(True)
+        self._detail.setStyleSheet(f"color: {self._theme.fg_muted}; font-size: 11px;")
+        layout.addWidget(self._detail)
+
+        layout.addStretch(1)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        self._cancel_btn = QPushButton("Cancel")
+        self._cancel_btn.clicked.connect(self.reject)
+        buttons.addWidget(self._cancel_btn)
+        self._download_btn = QPushButton("Download")
+        self._download_btn.setDefault(True)
+        self._download_btn.setStyleSheet(
+            f"QPushButton {{ background: {self._theme.accent};"
+            f" color: {self._theme.accent_text}; border: none; border-radius: 6px;"
+            f" padding: 6px 16px; font-weight: 600; }}"
+            f" QPushButton:hover {{ background: {self._theme.accent_hover}; }}"
+            f" QPushButton:disabled {{ background: {self._theme.bg_alt};"
+            f" color: {self._theme.fg_muted}; }}"
+        )
+        self._download_btn.clicked.connect(self.accept)
+        buttons.addWidget(self._download_btn)
+        layout.addLayout(buttons)
+
+        # Only now: checking a radio calls _sync, which reads every widget above.
+        if self._radios:
+            next(iter(self._radios.values())).setChecked(True)
+        self._sync()
+
+    # ------------------------------------------------------------------ build
+
+    def _build_warning(self) -> QWidget:
+        """The unverified-source warning, inline, gating the Download button."""
+        box = QWidget()
+        layout = QVBoxLayout(box)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(6)
+
+        text = (
+            f"'{self._model.provider}' is not a recognised first-party publisher — "
+            "you would be downloading and running model files from this source."
+        )
+        if is_reupload(self._model):
+            text += f"\nThis looks like a community re-upload of: {self._model.base_model}"
+        warning = QLabel(text)
+        warning.setWordWrap(True)
+        warning.setStyleSheet(f"color: {self._theme.warning}; font-size: 11px;")
+        layout.addWidget(warning)
+
+        self._check = QCheckBox("I understand and want to continue")
+        self._check.setStyleSheet(f"color: {self._theme.fg}; font-size: 11px;")
+        self._check.toggled.connect(lambda _c: self._sync())
+        layout.addWidget(self._check)
+
+        box.setStyleSheet(
+            f"QWidget {{ background: {self._theme.bg_alt};"
+            f" border: 1px solid {self._theme.warning}; border-radius: 8px; }}"
+        )
+        return box
+
+    def _build_sources(self) -> QWidget:
+        box = QWidget()
+        layout = QVBoxLayout(box)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        label = QLabel("Download from")
+        label.setStyleSheet(f"color: {self._theme.fg_muted}; font-size: 11px;")
+        layout.addWidget(label)
+
+        self._radios: dict[str, QRadioButton] = {}
+        for key in self.available_sources():
+            radio = QRadioButton(self._source_label(key))
+            radio.setStyleSheet(f"color: {self._theme.fg}; font-size: 12px;")
+            radio.toggled.connect(lambda checked, k=key: self._sync() if checked else None)
+            layout.addWidget(radio)
+            self._radios[key] = radio
+        return box
+
+    # ------------------------------------------------------------------ state
+
+    def _engine_state(self, key: str) -> ProviderState:
+        wanted = {"ollama": "ollama", "lmstudio": "lm studio"}[key]
+        for provider in self._providers:
+            if provider.name.lower() == wanted:
+                return provider.state
+        return ProviderState.NOT_INSTALLED
+
+    def available_sources(self) -> list[str]:
+        """Engine choices that exist on this machine, ready ones first, then HF."""
+        offered = [
+            key
+            for key in ("ollama", "lmstudio")
+            if self._engine_state(key) != ProviderState.NOT_INSTALLED
+        ]
+        offered.sort(key=lambda key: 0 if self._engine_state(key) == ProviderState.READY else 1)
+        return offered + ["hf"]
+
+    def _source_label(self, key: str) -> str:
+        if key == "hf":
+            return "HuggingFace GGUF (choose repo and file next)"
+        name = {"ollama": "Ollama", "lmstudio": "LM Studio"}[key]
+        state = self._engine_state(key)
+        if state == ProviderState.READY:
+            return f"{name}  ·  ready"
+        return f"{name}  ·  off — will be started first"
+
+    def selected_source(self) -> str:
+        for key, radio in self._radios.items():
+            if radio.isChecked():
+                return key
+        return self.available_sources()[0]
+
+    def selected_id(self) -> str:
+        """The id this download is asked for: Ollama's tag, empty otherwise."""
+        if self.selected_source() != "ollama":
+            return ""
+        return self._tag_combo.currentText().strip()
+
+    def wants_engine_start(self) -> bool:
+        """True when the chosen engine is installed but not running."""
+        key = self.selected_source()
+        if key == "hf":
+            return False
+        return self._engine_state(key) == ProviderState.INSTALLED_OFF
+
+    def _hint(self, key: str) -> str:
+        if key == "ollama":
+            return (
+                "Pulled into Ollama's own store and listed on My Models. Its library may "
+                "not have this model — a failed pull offers the GGUF paths instead."
+            )
+        if key == "lmstudio":
+            return (
+                "Written into LM Studio's models folder as GGUF; LM Studio picks it up "
+                "without a restart. The repo and file are chosen next."
+            )
+        return (
+            "A GGUF file from any repo, into a folder you choose. "
+            "The repo and file are chosen next."
+        )
+
+    def _sync(self) -> None:
+        """Everything the current answer changes: the id field, the hint, Download."""
+        source = self.selected_source()
+        self._tag_row.setVisible(source == "ollama")
+        self._detail.setText(self._hint(source))
+
+        enabled = self._check is None or self._check.isChecked()
+        if source == "ollama" and not self.selected_id():
+            enabled = False
+        self._download_btn.setEnabled(enabled)

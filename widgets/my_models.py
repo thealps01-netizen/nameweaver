@@ -195,6 +195,12 @@ class MyModelsView(QWidget):
         self._on_selection_changed()
 
     def _render_engine_notices(self, engines_with_rows: set[str]) -> None:
+        """One line for the engines that need starting, one for the absent ones.
+
+        A card per engine pushed the table down the page as soon as more than one
+        engine was closed — three lines on this four-engine machine — so the off
+        engines now share a line, each keeping its own Start button.
+        """
         while self._engine_notices.count():
             item = self._engine_notices.takeAt(0)
             widget = item.widget()
@@ -202,32 +208,50 @@ class MyModelsView(QWidget):
                 widget.deleteLater()
         self._notice.setVisible(False)
 
-        for name, status in self._states.items():
-            if status.state == ProviderState.READY or name in engines_with_rows:
-                continue
-            if status.state == ProviderState.NOT_INSTALLED:
-                text = f"{name} is not installed — install it to run models on it."
-                action = ""
-            else:
-                text = f"{name} is off — start it to list and run its models."
-                action = status.start_action or ""
+        c = get_theme(self._theme_name)
+        off = [
+            (name, status)
+            for name, status in self._states.items()
+            if status.state == ProviderState.INSTALLED_OFF and name not in engines_with_rows
+        ]
+        missing = [
+            name
+            for name, status in self._states.items()
+            if status.state == ProviderState.NOT_INSTALLED and name not in engines_with_rows
+        ]
 
+        if off:
+            names = ", ".join(name for name, _ in off)
             line = QFrame()
             line.setObjectName("card")
             lay = QHBoxLayout(line)
             lay.setContentsMargins(12, 8, 12, 8)
-            lbl = QLabel(text)
-            lbl.setWordWrap(True)
-            lbl.setStyleSheet(
-                f"color: {get_theme(self._theme_name).warning}; background: transparent;"
+            lay.setSpacing(8)
+            lbl = QLabel(
+                f"{names} {'are' if len(off) > 1 else 'is'} off — start "
+                f"{'them' if len(off) > 1 else 'it'} to list and run "
+                f"{'their' if len(off) > 1 else 'its'} models."
             )
+            lbl.setWordWrap(True)
+            lbl.setStyleSheet(f"color: {c.warning}; background: transparent;")
             lay.addWidget(lbl, stretch=1)
-            if action:
+            for name, status in off:
+                if not status.start_action:
+                    continue
                 btn = QPushButton("Start")
+                btn.setToolTip(f"Start {name}")
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                btn.clicked.connect(lambda _=False, a=action: self.start_engine_requested.emit(a))
+                btn.clicked.connect(
+                    lambda _=False, a=status.start_action: self.start_engine_requested.emit(a)
+                )
                 lay.addWidget(btn)
             self._engine_notices.addWidget(line)
+
+        if missing:
+            lbl = QLabel(f"Not installed: {', '.join(missing)}.")
+            lbl.setWordWrap(True)
+            lbl.setStyleSheet(f"color: {c.fg_muted}; background: transparent; font-size: 11px;")
+            self._engine_notices.addWidget(lbl)
 
     def _append_row(self, row: dict, c) -> None:
         r = self._table.rowCount()

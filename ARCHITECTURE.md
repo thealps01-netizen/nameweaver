@@ -127,6 +127,7 @@ Kurulu ve/veya çalışan yerel inference motorlarını keşfeder.
 - **`ProviderStatus`** (dataclass): motor adı, durum, model listesi, `model_count`.
 - **`ProviderState`** (Enum): kurulu değil / kurulu ama kapalı / çalışıyor.
 - Dedektörler: `detect_ollama` (HTTP API), `detect_lm_studio` (HTTP + **disk taraması** — sunucu kapalıyken bile kurulu modelleri görür, v0.1.12), `detect_llamacpp`, `detect_docker_model_runner`, `detect_all_providers`.
+- **`list_installed_models()`** — motorların **kendi bildirdiği** kurulu modeller (`InstalledModel`): Ollama `/api/tags` (boyut, parametre, quant, motorun kendi `capabilities`'i), LM Studio `/v1/models` + `.gguf` disk taraması (sunucu kapalıysa `reported_by_engine=False` → listelenir ama çalıştırılamaz). Katalogdan bağımsızdır; My Models sayfası bunu kullanır.
 - Kurulum tespiti: `_ollama_is_installed`, `_lmstudio_is_installed`, `_docker_is_installed` + installer URL'leri.
 - LM Studio disk mantığı: `_lmstudio_models_dir` (`settings.json`'daki `downloadsFolder`'ı okur), `_scan_lmstudio_disk_models`.
 
@@ -188,6 +189,7 @@ UI'yı dondurmadan ağır işleri çalıştırır; sonuçları sinyalle döner:
 | `ModelLoadWorker` | katalog yükleme |
 | `InferenceWorker` | streaming chat (cancel destekli) |
 | `DownloadWorker` | model indirme (cancel + ilerleme) |
+| `InstalledModelsWorker` | motorların kurulu model listesi (HTTP + disk, UI thread'i bloklamadan) |
 | `HFUpdateWorker` | HF katalog güncelleme |
 
 #### `widgets/` — Yeniden Kullanılabilir UI Bileşenleri
@@ -197,8 +199,8 @@ UI'yı dondurmadan ağır işleri çalıştırır; sonuçları sinyalle döner:
 | `detail_panel.py` | `DetailPanel`, `ScoreBar` | Seçili model detayları + Match/Fit skor çubukları |
 | `comparison.py` | `ComparisonDialog` | Modelleri yan yana karşılaştırma |
 | `chat_dialog.py` | `ChatDialog`, `_Bubble`, `_CodeBlock`, `_highlight_code` | Balon arayüzlü sohbet; avatar, zaman damgası, "düşünüyor" animasyonu, kod-başına Copy, pygments highlight, resim sürükle-bırak |
-| `download_dialog.py` | `DownloadDialog`, `GgufPickerDialog`, `GgufMirrorPickerDialog` | İndirme + GGUF varyant/ayna seçimi (`_detect_quant`) |
-| `engine_status.py` | `EngineStatusPill` | Motor durumu "pill"i (`_overall_state`, `_pick_primary`) |
+| `download_dialog.py` | `DownloadDialog`, **`DownloadSourceDialog`**, `GgufPickerDialog`, `GgufMirrorPickerDialog` | `DownloadSourceDialog` indirme kararını tek ekranda toplar (kaynak + Ollama tag + güven onayı); diğerleri ilerleme ve GGUF varyant/ayna seçimi (`_detect_quant`) |
+| `engine_status.py` | `EngineStatusPill`, `_ProviderRow` | Motor durumu "pill"i (`_overall_state`, `_pick_primary`); popup satırları motor adına bağlı ve **yerinde** güncellenir |
 | `filter_bar.py` | `FilterBar` | Üst filtre çubuğu (use case, boyut, PC Load, kurulu, arama) |
 | `hw_sim.py` | `HardwareSimPanel` | Donanım simülasyonu (RAM/VRAM/çekirdek override) |
 | `markdown_render.py` | `md_to_html`, `split_segments`, `_inline`, `_table_html` | Güvenli Markdown→HTML (tablo/liste/kod, escape'li) |
@@ -228,12 +230,16 @@ Gömülü model kataloğu. Her giriş `LlmModel` alanlarıyla birebir eşleşir 
 
 ---
 
-### 3.5 Test (`tests/` — ~3.024 satır, 15 test dosyası, 280 test)
-`pytest` + `pytest-qt`. Kapsam tabanı **%58** (ölçülen %59; `tests/` ve `tools/` raporun dışında).
+### 3.5 Test (`tests/` — 17 test dosyası, 335 test)
+`pytest` + `pytest-qt`. Kapsam tabanı **%58** (ölçülen %60; `tests/` ve `tools/` raporun dışında).
 
 **Saf çekirdek (PyQt'siz):** `test_hw.py`, `test_models.py`, `test_model_classification.py`, `test_scoring.py` (en büyük — 427 satır), `test_providers.py`, `test_provider_control.py`, `test_runner.py`, `test_downloader.py`, `test_hf_api.py`, `test_engine_status.py`, `test_markdown_render.py`, `test_themes.py`, `test_version.py`.
 
-**UI smoke (`test_ui_smoke.py`, 17 test):** PyQt katmanını offscreen platformda ( `conftest.py` → `QT_QPA_PLATFORM=offscreen`) kurar. Kapsananlar: ana pencerenin açılışı ve birincil akış (specs → skorlama worker'ı → Score sütununa göre sıralı tablo), `DetailPanel` aksiyon kuralları (GGUF'ta Download açık · Run yalnızca kuruluyken açık · AWQ/GPTQ'da ikisi de kapalı), her widget ve diyaloğun kurulması (Qt API'si yeniden adlandırıldığında ilk burada kırılır), `InstallerDownloader`'ın sidecar yokken ya da hash uyuşmazken installer'ı **çalıştırmayı reddetmesi**, ve f-string'lerde açılmamış `{{`/`}}` kaçışı taraması. Updater testleri `file://` URL kullanır — ağ gerekmez.
+**UI smoke (`test_ui_smoke.py`, 25 test):** PyQt katmanını offscreen platformda ( `conftest.py` → `QT_QPA_PLATFORM=offscreen`) kurar. Kapsananlar: ana pencerenin açılışı ve birincil akış (specs → skorlama worker'ı → Score sütununa göre sıralı tablo), `DetailPanel` aksiyon kuralları (GGUF'ta Download açık · Run yalnızca kuruluyken açık · AWQ/GPTQ'da ikisi de kapalı), her widget ve diyaloğun kurulması (Qt API'si yeniden adlandırıldığında ilk burada kırılır), `InstallerDownloader`'ın sidecar yokken ya da hash uyuşmazken installer'ı **çalıştırmayı reddetmesi**, f-string'lerde açılmamış `{{`/`}}` kaçışı taraması, **Catalog ↔ My Models** sayfa geçişi (`QStackedWidget`, filtre çubuğu yalnız katalogda) ve motor popup satırlarının kendi motorundan güncellenmesi. Updater testleri `file://` URL kullanır — ağ gerekmez.
+
+**My Models (`test_my_models.py`, 12 test):** motor listelerinin ayrıştırılması (`/api/tags` alanları, LM Studio disk taraması, `capabilities: ["embedding"]`) + sayfanın satır kuralları (embedder'da Run kapalı, katalogda olmayan model yine çalıştırılabilir, boş durum, motor kapalıysa Start).
+
+**İndirme seçimi (`test_download_source_dialog.py`, 14 test):** hangi kaynakların sunulduğu ve sırası (hazır önce, kurulu değilse hiç), Ollama tag ön-doldurması, güvenilmez yayıncıda onay kutusu kapısı, tag boşaltılınca Download'ın kapanması.
 
 **Güncelleme kararı (`test_updater.py`, 22 test):** sürüm ayrıştırma/karşılaştırma, `.exe` asset seçimi, atlanan sürüm deposu, ve `UpdateChecker._run()`'ın dört kararı (yeni sürüm → teklif · atlanmış → sessiz · asset yok → sessiz · ağ yok → `check_failed`).
 
@@ -287,12 +293,15 @@ Açılış
   → ModelLoadWorker: kataloğu yükle (json + HF cache)│
   → ScoringWorker: her modeli donanıma göre skorla ◄─┘ (SystemSpecs)
   → tablo skora göre sıralı gösterilir (🟢/🟡/🔴, boyut, PC Load)
+Görünümler (sidebar): Model Catalog = tablo + detay + donanım simülasyonu;
+                       My Models = motorların kendi listesi (Run burada).
 Kullanıcı:
   → filtreler / arar / hız↔kalite kaydırıcısını oynatır → yeniden sıralanır
   → bir model seçer → DetailPanel (Match/Fit, quant, TPS, bellek, güven rozeti)
-  → sağ tık → İndir (DownloadWorker: Ollama pull / HF GGUF)
-  → Çalıştır → ChatDialog (InferenceWorker: streaming, çok-turlu, vision)
-  → sağ tık → motordan Sil
+  → İndir → DownloadSourceDialog (kaynak + Ollama tag + güven onayı, tek ekran)
+            → DownloadWorker: Ollama pull / LM Studio GGUF / HF GGUF
+  → My Models → Run (motorun kendi id'si) → ChatDialog (InferenceWorker: streaming, çok-turlu, vision)
+  → My Models → Remove… / Show in Catalog
 Arka planda:
   → ProviderPoller (10 sn) motor durumunu tazeler
   → UpdateChecker yeni sürüm varsa uyarır
