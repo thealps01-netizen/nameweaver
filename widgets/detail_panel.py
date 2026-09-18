@@ -201,7 +201,7 @@ class DetailPanel(QWidget):
         self._download_btn.setEnabled(False)
         self._action_row.addWidget(self._download_btn)
 
-        self._run_btn = QPushButton("Run")
+        self._run_btn = QPushButton("Run →")
         self._run_btn.setToolTip("Chat with this model (must be installed)")
         self._run_btn.clicked.connect(self._emit_run)
         self._run_btn.setEnabled(False)
@@ -272,9 +272,10 @@ class DetailPanel(QWidget):
         can_run = compatible and on_disk and fit.fit_level != FitLevel.TOO_TIGHT and chat_capable
         self._run_btn.setEnabled(can_run)
         if can_run:
-            run_hint = "Chat with this model"
-            if likely_in and not installed_in:
-                run_hint = f"Chat with the installed model ({engine_ids.get(likely_in[0], '?')})"
+            # Running happens on the My Models page, where the engine's own id is
+            # known (and shown) instead of being guessed from the catalog name.
+            engine = (installed_in or likely_in)[0]
+            run_hint = f"Run in My Models ({engine}: {engine_ids.get(engine, '?')})"
         elif not compatible:
             run_hint = incompatible_hint
         elif not chat_capable:

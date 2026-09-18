@@ -5,6 +5,10 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
 ## [Unreleased]
+### Added
+- **My Models sayfası**: indirdiğin ve çalıştırabildiğin modeller katalogdan ayrı bir sayfada. Liste **motorların kendi bildirdiğinden** üretilir (Ollama `/api/tags`: boyut, parametre, quant, motorun kendi `capabilities`'i; LM Studio `/v1/models`; sunucu kapalıysa disk taraması) — katalog yalnızca zenginleştirme, eşleşme tutmazsa satır "katalogda yok" der ve yine çalıştırılabilir. **Run artık burada** (satır başına bir tık) ve sağ tık menüsünde kısayol olarak duruyor; katalog detayındaki buton "Run →" olup seni bu sayfaya getiriyor. Motor kapalıysa satır yerine "başlat" uyarısı görünür; başlık altında "Refresh" var.
+- Sidebar'da gerçek görünüm sistemi: **Model Catalog** ve **My Models** sekmeleri (`QStackedWidget`). Katalog filtresi yalnız katalog sayfasında görünür. HuggingFace katalog güncellemesi yapan eski buton artık **"Update Catalog"** adıyla duruyor (eskiden "Model Catalog" yazıyordu ama sayfa açmıyordu).
+
 ### Fixed
 - **Kurulu-model eşleştirmesi**: katalog adı ile motorun kendi model id'si arasındaki fark artık kayboluyor. `models.match_installed_ids` iki geçişli çalışıyor — birebir eşleşen giriş motor id'sini "sahiplenir", artakalan id'leri kapsama (subset) eşleşmesi alır ve "muhtemelen kurulu" olarak işaretlenir. Böylece `DeepSeek-R1-Distill-Qwen-7B` ↔ `deepseek-r1:7b` gibi adlar ve `nomic-embed-text-v1.5` ↔ `nomic-embed-text:latest` gibi boyut token'ı olmayan adlar görünür; `gemma-2-2b-jpn-it` ise `gemma2:2b`'yi çalmaya devam edemez (v0.1.14 koruması korunuyor).
 - **Embedding modelleri artık sohbet için sunulmuyor**: `models.is_chat_model` ile Run yolu (detay paneli, sağ tık menüsü, `_on_run_requested`) kapatıldı; "Runs" trafik ışığı bu modellerde "No chat" diyor ve analiz notu nedenini yazıyor. Önceden bir embedder kuruluysa Run açılıp motor tarafında hata veriyordu.

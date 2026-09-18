@@ -25,7 +25,8 @@ Uygulama net bir **çekirdek (saf mantık) / UI (PyQt)** ayrımına sahiptir. Ç
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │  UI KATMANI (PyQt6)                                                     │
-│  app.py (MainWindow)  ── widgets/*  ── dialogs.py ── themes.py          │
+│  app.py (MainWindow, QStackedWidget: Catalog | My Models)               │
+│         ── widgets/*  ── dialogs.py ── themes.py                        │
 │         │                                                               │
 │         │ sinyaller / slotlar                                           │
 │         ▼                                                               │
@@ -180,6 +181,7 @@ UI'yı dondurmadan ağır işleri çalıştırır; sonuçları sinyalle döner:
 |---|---|
 | `HardwareWorker` | `SystemSpecs.detect()` |
 | `ProviderWorker` | tek seferlik motor tespiti |
+| `InstalledModelsWorker` | My Models için motorların kurulu modellerini toplama (HTTP + disk) |
 | `ProviderPoller` | periyodik motor durumu (varsayılan 10 sn) |
 | `ProviderStartWorker` / `ProviderStopWorker` | motor başlat/durdur |
 | `ScoringWorker` | `analyze_all` katalog skorlama |
@@ -201,6 +203,7 @@ UI'yı dondurmadan ağır işleri çalıştırır; sonuçları sinyalle döner:
 | `hw_sim.py` | `HardwareSimPanel` | Donanım simülasyonu (RAM/VRAM/çekirdek override) |
 | `markdown_render.py` | `md_to_html`, `split_segments`, `_inline`, `_table_html` | Güvenli Markdown→HTML (tablo/liste/kod, escape'li) |
 | `status_bar.py` | `AppStatusBar` | Alt durum çubuğu |
+| `my_models.py` | `MyModelsView` | **My Models** sayfası — motorların bildirdiği kurulu modeller (boyut/parametre/quant, katalog bağlantısı), satır başına **Run**, Remove/Show in Catalog |
 | `system_bar.py` | `SystemBar`, `_SysCard` | Üstte sistem donanım kartları |
 
 #### `dialogs.py` (~11 KB)

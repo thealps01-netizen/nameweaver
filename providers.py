@@ -302,3 +302,131 @@ def detect_all_providers() -> list[ProviderStatus]:
         detect_llamacpp(),
         detect_docker_model_runner(),
     ]
+
+
+# ---------------------------------------------------------------------------
+# Installed models — the engines' own view of what they hold
+# ---------------------------------------------------------------------------
+
+LM_STUDIO_MODELS_URL = "http://localhost:1234/v1/models"
+# Listing is not a liveness probe: a machine with hundreds of models needs longer
+# than the 0.8 s probe timeout, and a slow answer here costs a spinner, not a
+# wrong state.
+LIST_TIMEOUT_SECONDS = 5.0
+
+
+@dataclass
+class InstalledModel:
+    """One model an engine holds, as that engine (or its models folder) reports it."""
+
+    engine: str
+    id: str
+    size_bytes: int = 0
+    parameters: str = ""
+    quantization: str = ""
+    family: str = ""
+    path: str = ""
+    capabilities: tuple[str, ...] = ()
+    reported_by_engine: bool = False  # False → read off disk while the server was off
+
+    @property
+    def engine_reports_no_chat(self) -> bool:
+        """Ollama tells us a model can only embed; trust it over any guess."""
+        caps = {c.lower() for c in self.capabilities}
+        return "embedding" in caps and "completion" not in caps
+
+
+def list_installed_models() -> list[InstalledModel]:
+    """Everything the local engines hold, each engine's own answer first.
+
+    Ollama's ``/api/tags`` carries size, parameter count, quantisation and the
+    engine's own capabilities; LM Studio's OpenAI-compatible ``/v1/models`` gives
+    the ids its server will accept. When an LM Studio server is off, its models
+    are read off disk instead: listed (so they don't look deleted) but not
+    runnable until it is started.
+    """
+    return _list_ollama_models() + _list_lmstudio_models()
+
+
+def _list_ollama_models() -> list[InstalledModel]:
+    data = _http_get_json(f"{_ollama_host()}/api/tags", timeout=LIST_TIMEOUT_SECONDS)
+    if not isinstance(data, dict):
+        return []
+
+    rows: list[InstalledModel] = []
+    for entry in data.get("models", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name") or entry.get("model") or ""
+        if not name:
+            continue
+        raw_details = entry.get("details")
+        details: dict = raw_details if isinstance(raw_details, dict) else {}
+        rows.append(
+            InstalledModel(
+                engine="Ollama",
+                id=str(name),
+                size_bytes=int(entry.get("size") or 0),
+                parameters=str(details.get("parameter_size") or ""),
+                quantization=str(details.get("quantization_level") or ""),
+                family=str(details.get("family") or ""),
+                capabilities=tuple(str(c) for c in (entry.get("capabilities") or ())),
+                reported_by_engine=True,
+            )
+        )
+    return rows
+
+
+def _lmstudio_disk_files() -> dict[str, Path]:
+    """GGUF files in LM Studio's models folder, keyed by lower-cased file stem."""
+    found: dict[str, Path] = {}
+    base = _lmstudio_models_dir()
+    try:
+        if base.is_dir():
+            for gguf in base.rglob("*.gguf"):
+                found.setdefault(gguf.stem.lower(), gguf)
+    except OSError as exc:
+        logger.debug("LM Studio disk scan failed: %s", exc)
+    return found
+
+
+def _list_lmstudio_models() -> list[InstalledModel]:
+    on_disk = _lmstudio_disk_files()
+    rows: list[InstalledModel] = []
+
+    data = _http_get_json(LM_STUDIO_MODELS_URL, timeout=LIST_TIMEOUT_SECONDS)
+    if isinstance(data, dict):
+        for entry in data.get("data", []) or []:
+            model_id = entry.get("id") if isinstance(entry, dict) else None
+            if not model_id:
+                continue
+            row = InstalledModel(engine="LM Studio", id=str(model_id), reported_by_engine=True)
+            # Tie the id to its file when we can, for size and quantisation.
+            file = on_disk.get(str(model_id).lower()) or on_disk.get(
+                str(model_id).rsplit("/", 1)[-1].lower()
+            )
+            if file is not None:
+                row.path = str(file)
+                try:
+                    row.size_bytes = file.stat().st_size
+                except OSError:
+                    pass
+            rows.append(row)
+        return rows
+
+    # Server off: the folder is still evidence of what is installed.
+    for file in sorted(on_disk.values(), key=lambda f: str(f).lower()):
+        try:
+            size = file.stat().st_size
+        except OSError:
+            size = 0
+        rows.append(
+            InstalledModel(
+                engine="LM Studio",
+                id=file.stem,
+                path=str(file),
+                size_bytes=size,
+                reported_by_engine=False,
+            )
+        )
+    return rows

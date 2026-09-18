@@ -121,6 +121,22 @@ class ProviderStopWorker(QThread):
             self.error.emit(str(exc))
 
 
+class InstalledModelsWorker(QThread):
+    """Read what every engine holds (HTTP + disk) without blocking the UI."""
+
+    finished = pyqtSignal(list)  # list[InstalledModel]
+    error = pyqtSignal(str)
+
+    def run(self) -> None:
+        try:
+            from providers import list_installed_models
+
+            self.finished.emit(list(list_installed_models()))
+        except Exception as exc:
+            logger.warning("Listing installed models failed: %s", exc)
+            self.error.emit(str(exc))
+
+
 class ScoringWorker(QThread):
     """Score all models against hardware in background."""
 

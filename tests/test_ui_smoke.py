@@ -83,7 +83,7 @@ def test_detail_panel_renders_and_clears_a_fit(qtbot, sample_specs, small_model)
     fit.engine_ids = {"Ollama": "testmodel3b:latest"}
     panel.show_model(fit)
     assert panel._run_btn.isEnabled() is True
-    assert panel._run_btn.toolTip() == "Chat with this model"
+    assert panel._run_btn.toolTip() == "Run in My Models (Ollama: testmodel3b:latest)"
 
     panel.show_model(None)
     assert panel._score_label.text() == ""
@@ -435,3 +435,86 @@ def test_installed_filter_counts_a_probable_match(qtbot, sample_specs, small_mod
         for row in range(proxy.rowCount())
     ]
     assert sorted(kept) == ["Probable-7B", "TestModel-3B"]
+
+
+class TestMyModelsPageWiring:
+    """The page is only useful if the window actually switches to it and feeds it."""
+
+    def _window(self, qtbot, monkeypatch):
+        monkeypatch.setattr(app_module, "UpdateChecker", _StubUpdateChecker)
+        monkeypatch.setattr(app_module, "load_config", lambda: AppConfig(theme="dark"))
+        monkeypatch.setattr(app_module, "save_config", lambda _cfg: None)
+        monkeypatch.setattr(app_module.MainWindow, "_start_detection", lambda self: None)
+        monkeypatch.setattr(app_module.MainWindow, "_apply_dwm_dark_title_bar", lambda self: None)
+        window = app_module.MainWindow()
+        qtbot.addWidget(window)
+        return window
+
+    def test_the_catalog_run_button_hands_over_to_my_models(
+        self, qtbot, monkeypatch, sample_specs, small_model
+    ):
+        window = self._window(qtbot, monkeypatch)
+        assert window._pages.count() == 2
+        assert window._pages.currentIndex() == 0
+
+        monkeypatch.setattr(window._my_models, "select_model", lambda _name: True)
+        window._open_in_my_models(_fit(small_model, sample_specs))
+
+        assert window._pages.currentIndex() == 1
+        assert window._filter_section.isVisible() is False  # filters describe the catalog
+
+    def test_switching_back_reveals_the_filters_again(self, qtbot, monkeypatch):
+        window = self._window(qtbot, monkeypatch)
+
+        window._show_page(1)
+        window._show_page(0)
+
+        assert window._pages.currentIndex() == 0
+        assert window._nav_catalog_btn.isChecked() is True
+        assert window._nav_my_models_btn.isChecked() is False
+
+    def test_engine_rows_are_enriched_with_the_catalog(
+        self, qtbot, monkeypatch, sample_specs, large_model
+    ):
+        from providers import InstalledModel, ProviderState, ProviderStatus
+
+        window = self._window(qtbot, monkeypatch)
+
+        # A row the engine reports, whose catalog name differs by qualifiers.
+        large_model.name = "DeepSeek-R1-Distill-Qwen-7B"
+        fit = _fit(large_model, sample_specs)
+        fit.engine_ids = {"Ollama": "deepseek-r1:7b"}
+        fit.likely_providers = ["Ollama"]
+        window._fits = [fit]
+        status = ProviderStatus(name="Ollama", state=ProviderState.READY, available=True)
+        window._providers = [status]
+
+        window._on_installed_models_listed(
+            [
+                InstalledModel(
+                    engine="Ollama",
+                    id="deepseek-r1:7b",
+                    size_bytes=4 * 1024**3,
+                    parameters="7B",
+                    quantization="Q4_K_M",
+                    capabilities=("completion", "tools"),
+                    reported_by_engine=True,
+                ),
+                InstalledModel(
+                    engine="Ollama",
+                    id="some-embedder:latest",
+                    capabilities=("embedding",),
+                    reported_by_engine=True,
+                ),
+            ]
+        )
+
+        view = window._my_models
+        assert view.row_count() == 2
+        assert view.cell_text(0, 0) == "DeepSeek-R1-Distill-Qwen-7B"  # catalog name
+        assert view.cell_text(0, 5) == "DeepSeek-R1-Distill-Qwen-7B"
+        assert view.cell_text(0, 6) == "yes"
+        assert view.run_button(0).isEnabled() is True
+        # Engine says embedding-only → never runnable, and no catalog entry needed.
+        assert view.cell_text(1, 6) == "no"
+        assert view.run_button(1).isEnabled() is False

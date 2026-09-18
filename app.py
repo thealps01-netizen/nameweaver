@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -64,6 +65,7 @@ from widgets.download_dialog import (
 from widgets.filter_bar import FilterBar
 from widgets.hw_sim import HardwareSimPanel
 from widgets.model_table import ModelFilterProxy, ModelTableModel, ModelTableView
+from widgets.my_models import MyModelsView
 from widgets.status_bar import AppStatusBar
 from widgets.system_bar import SystemBar
 from workers import (
@@ -486,18 +488,28 @@ class MainWindow(QMainWindow):
             self._sidebar_btns.append(btn)
             return btn
 
-        # Dashboard
+        # Dashboard (clears filters, back to the catalog)
         self._nav_dashboard_btn = _nav_btn("mdi6.view-dashboard-outline", "Dashboard")
         self._nav_dashboard_btn.clicked.connect(self._reset_to_dashboard)
         sidebar_layout.addWidget(self._nav_dashboard_btn)
+
+        # Views: the catalog you browse, and the models you own
+        self._nav_catalog_btn = _nav_btn("mdi6.table-search", "Model Catalog", checkable=True)
+        self._nav_catalog_btn.setChecked(True)
+        self._nav_catalog_btn.clicked.connect(lambda: self._show_page(0))
+        sidebar_layout.addWidget(self._nav_catalog_btn)
+
+        self._nav_my_models_btn = _nav_btn("mdi6.harddisk", "My Models", checkable=True)
+        self._nav_my_models_btn.clicked.connect(lambda: self._show_page(1))
+        sidebar_layout.addWidget(self._nav_my_models_btn)
 
         # Theme picker
         self._theme_btn = _nav_btn("mdi6.palette-outline", "Theme")
         self._theme_btn.clicked.connect(self._show_theme_picker)
         sidebar_layout.addWidget(self._theme_btn)
 
-        # Update
-        self._update_btn = _nav_btn("mdi6.cloud-download-outline", "Model Catalog")
+        # Catalog update (HuggingFace), not a view — named for what it does
+        self._update_btn = _nav_btn("mdi6.cloud-download-outline", "Update Catalog")
         self._update_btn.clicked.connect(self._start_hf_update)
         sidebar_layout.addWidget(self._update_btn)
 
@@ -650,6 +662,7 @@ class MainWindow(QMainWindow):
         # ── Filter Section ───────────────────────────────────────────
         filter_section = QFrame()
         filter_section.setObjectName("filter_section")
+        self._filter_section = filter_section
         filter_inner = QVBoxLayout(filter_section)
         filter_inner.setContentsMargins(0, 0, 0, 0)
         filter_inner.setSpacing(0)
@@ -703,7 +716,7 @@ class MainWindow(QMainWindow):
 
         self._detail_panel = DetailPanel()
         self._detail_panel.download_requested.connect(self._on_download_requested)
-        self._detail_panel.run_requested.connect(self._on_run_requested)
+        self._detail_panel.run_requested.connect(self._open_in_my_models)
         detail_card_layout.addWidget(self._detail_panel)
         content_layout.addWidget(self._detail_card)
 
@@ -716,7 +729,25 @@ class MainWindow(QMainWindow):
         self._hwsim_panel.setObjectName("card")
         content_layout.addWidget(self._hwsim_panel)
 
-        body.addLayout(content_layout, stretch=1)
+        self._catalog_page = QWidget()
+        catalog_page_layout = QVBoxLayout(self._catalog_page)
+        catalog_page_layout.setContentsMargins(0, 0, 0, 0)
+        catalog_page_layout.addLayout(content_layout)
+
+        self._my_models = MyModelsView(theme_name=self._config.theme)
+        self._my_models.run_requested.connect(self._on_my_models_run)
+        self._my_models.remove_requested.connect(self._on_my_models_remove)
+        self._my_models.show_in_catalog_requested.connect(self._show_model_in_catalog)
+        self._my_models.start_engine_requested.connect(self._on_engine_start_requested)
+        self._my_models.refresh_requested.connect(self._refresh_my_models)
+
+        self._installed_worker = None
+
+        self._pages = QStackedWidget()
+        self._pages.addWidget(self._catalog_page)
+        self._pages.addWidget(self._my_models)
+        body.addWidget(self._pages, stretch=1)
+
         main_area.addLayout(body, stretch=1)
 
         # Collect animated sections for startup effect
@@ -1383,6 +1414,155 @@ class MainWindow(QMainWindow):
 
         self._update_stat_cards()
 
+        # Engine states changed while My Models is open → its rows' runnability did.
+        if hasattr(self, "_pages") and self._pages.currentIndex() == 1:
+            self._refresh_my_models()
+
+    # ------------------------------------------------------------------
+    # Pages: the catalog, and the models you own
+    # ------------------------------------------------------------------
+
+    def _show_page(self, index: int):
+        """Switch between the catalog table (0) and My Models (1)."""
+        self._pages.setCurrentIndex(index)
+        self._filter_section.setVisible(index == 0)  # filters describe the catalog
+        self._nav_catalog_btn.setChecked(index == 0)
+        self._nav_my_models_btn.setChecked(index == 1)
+        if index == 1:
+            self._refresh_my_models()
+
+    def _refresh_my_models(self):
+        """List what the engines hold, off the UI thread."""
+        if self._installed_worker is not None and self._installed_worker.isRunning():
+            return
+        from workers import InstalledModelsWorker
+
+        self._installed_worker = InstalledModelsWorker(self)
+        self._installed_worker.finished.connect(self._on_installed_models_listed)
+        self._installed_worker.error.connect(
+            lambda msg: logger.warning("Installed models list failed: %s", msg)
+        )
+        self._installed_worker.start()
+
+    def _on_installed_models_listed(self, rows):
+        """Enrich the engines' own rows with the catalog, then render them.
+
+        The catalog is enrichment only: a model no catalog entry knows is still
+        listed, and still runnable when the engine says it can chat.
+        """
+        from models import is_chat_model
+
+        by_name = {fit.model.name: fit for fit in self._fits}
+        links: dict[tuple[str, str], str] = {}
+        for fit in self._fits:
+            for engine, engine_id in (fit.engine_ids or {}).items():
+                links[(engine, engine_id)] = fit.model.name
+
+        out = []
+        for row in rows:
+            catalog_name = links.get((row.engine, row.id), "")
+            fit = by_name.get(catalog_name)
+
+            if row.engine_reports_no_chat:
+                chat: bool | None = False
+            elif row.capabilities:
+                chat = True
+            elif fit is not None:
+                chat = is_chat_model(fit.model)
+            else:
+                chat = None  # nobody said; allow Run and let the engine answer
+
+            quant = row.quantization
+            if not quant and row.path:
+                from widgets.download_dialog import _detect_quant
+
+                quant = _detect_quant(row.path)
+
+            out.append(
+                {
+                    "engine": row.engine,
+                    "id": row.id,
+                    "size_bytes": row.size_bytes,
+                    "parameters": row.parameters,
+                    "quantization": quant,
+                    "path": row.path,
+                    "catalog": catalog_name,
+                    "chat": chat,
+                    "runnable": any(p.name == row.engine and p.available for p in self._providers),
+                }
+            )
+
+        self._my_models.set_rows(out, {p.name: p for p in self._providers})
+
+    def _on_my_models_run(self, engine: str, model_id: str, catalog_name: str, chat_ok: bool):
+        """Run a row: the engine's own model id goes straight to the chat."""
+        if not chat_ok:
+            QMessageBox.information(
+                self,
+                "Embedding model",
+                f"'{model_id}' is an embedding model — the engine can embed text with it, "
+                "but it cannot hold a chat.",
+            )
+            return
+
+        fit = next((f for f in self._fits if f.model.name == catalog_name), None)
+        capabilities = (fit.model.capabilities if fit else []) or []
+        supports_vision = "vision" in [c.lower() for c in capabilities]
+
+        dialog = ChatDialog(
+            catalog_name or model_id,
+            [engine],
+            model_ids={engine: model_id},
+            supports_vision=supports_vision,
+            theme_name=self._config.theme,
+            parent=self,
+        )
+        dialog.exec()
+
+    def _on_my_models_remove(self, engine: str, model_id: str):
+        resp = QMessageBox.question(
+            self,
+            "Remove model",
+            f"Remove '{model_id}' from {engine}?\n\n"
+            "This permanently deletes the downloaded model files.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if resp != QMessageBox.StandardButton.Yes:
+            return
+
+        from provider_control import remove_model
+
+        ok, message = remove_model(engine, model_id)
+        logger.info("Remove %s from %s: %s", model_id, engine, message)
+        if not ok:
+            QMessageBox.warning(self, "Remove failed", message)
+        self._refresh_providers()
+        self._refresh_my_models()
+
+    def _show_model_in_catalog(self, catalog_name: str):
+        """Jump from a My Models row to the catalog entry it came from."""
+        self._show_page(0)
+        source_row = next(
+            (i for i, fit in enumerate(self._fits) if fit.model.name == catalog_name), None
+        )
+        if source_row is None:
+            return
+        proxy_index = self._filter_proxy.mapFromSource(self._table_model.index(source_row, 0))
+        if proxy_index.isValid():
+            self._table_view.selectRow(proxy_index.row())
+
+    def _open_in_my_models(self, fit: ModelFit):
+        """The catalog's Run button hands the user to the page that runs things."""
+        self._show_page(1)
+        if not self._my_models.select_model(fit.model.name):
+            QMessageBox.information(
+                self,
+                "Not in My Models",
+                f"'{fit.model.name}' is marked as installed but the engine didn't list it.\n\n"
+                "Start the engine (or Refresh) and it should appear here.",
+            )
+
     # ------------------------------------------------------------------
     # Engine lifecycle handlers (start / install from pill widget)
     # ------------------------------------------------------------------
@@ -1679,7 +1859,9 @@ class MainWindow(QMainWindow):
         self._status_bar.set_model_count(len(self._fits), visible)
 
     def _reset_to_dashboard(self):
-        """Reset filters, clear selection, scroll to top."""
+        """Reset filters, clear selection, scroll to top — and show the catalog."""
+        if hasattr(self, "_pages"):
+            self._show_page(0)
         self._filter_bar.reset_filters()
         self._table_view.clearSelection()
         self._table_view.scrollToTop()
