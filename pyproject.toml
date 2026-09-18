@@ -1,11 +1,12 @@
 [project]
 name = "nameweaver"
-version = "0.1.12"
+version = "0.1.29"
 description = "Right-size LLM models to your hardware — PyQt6 desktop app"
 requires-python = ">=3.10"
 dependencies = [
     "PyQt6>=6.6.0",
     "psutil>=5.9.0",
+    "qtawesome>=1.3.0",
 ]
 
 [project.optional-dependencies]

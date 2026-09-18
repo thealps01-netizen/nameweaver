@@ -21,17 +21,28 @@ Bu, PyInstaller ile `dist\Nameweaver\Nameweaver.exe`, Inno Setup kuruluysa
 
 ## Sürüm yayınlama & otomatik güncelleme
 
-Sürüm bilgisi tek yerde: [`version.py`](version.py). Yayın için:
+**Geliştirme sırasında** sürümün tek kaynağı [`version.py`](version.py). **Yayında**
+sürüm **git tag'inden** okunur: `v*.*.*` tag'i GitHub Actions'ı tetikler
+([release.yml](.github/workflows/release.yml)) ve workflow tag'deki sürümü
+`version.py` + `file_version_info.txt` içine **enjekte eder** → bu yüzden tag ile
+`version.py` aynı olmalı.
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.29
+git push origin v0.1.29
 ```
 
-`v*.*.*` tag'i GitHub Actions'ı tetikler ([release.yml](.github/workflows/release.yml)):
-test → PyInstaller → Inno Setup installer → SHA256 → **GitHub Release**.
+Yayın hattı: test → sürüm enjeksiyonu → PyInstaller → Inno Setup installer → SHA256 →
+**GitHub Release**.
+
 Uygulama her açılışta [`updater.py`](updater.py) ile son sürümü kontrol eder ve
 yeni sürüm varsa kullanıcıya güncelleme sunar.
+
+> `pyproject.toml`, `nameweaver.iss` ve `file_version_info.txt` içindeki sürümler
+> yalnızca **elle** çalıştırılan araçlar için varsayılandır (workflow ve `build.bat`
+> hepsini `/DAppVersion` veya enjeksiyonla ezer). Yayın öncesi `version.py` ile
+> birlikte güncel tutulurlar; sapma `version.py` 0.1.29 iken 0.1.12 kalması gibi
+> kafa karışıklığına yol açar.
 
 ## Lisans
 

@@ -6,6 +6,28 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.29] - 2026-09-10
+### Reverted
+- 0.1.26–0.1.28'de eklenen **canlı HuggingFace arama** geri alındı (`2cf57c3`): arama kutusu, `HFSearchWorker`, kırpılmış-sorgu/URL fallback'leri ve filtre çubuğundaki sonuç-gösterme yardımcısı kaldırıldı. Katalog yeniden v0.1.25 davranışında: popular/trending taraması + yalnızca **yüklenmiş modeller üzerinde** filtre araması.
+- Not: 0.1.26–0.1.28 installer'ları yayınlandığı için bu sürümler **bir geri adım**; kullanıcı tarafında görünür işlev kaybı yok, özellik zaten istenen davranış değildi.
+
+## [0.1.28] - 2026-09-10
+### Fixed
+- HF araması: yapıştırılan **tam HuggingFace URL'si veya `owner/name` kimliği** artık arama uç noktasına düz metin olarak gönderilmiyor — repo kimliği ayrıştırılıp model doğrudan çekiliyor, yalnızca isabet yoksa metin aramasına düşülüyor.
+- HF araması: eklenen sonuçlar artık aktif **PC-Load / Min-TPS / Fit** filtrelerinin arkasında kalıp listenin dibine düşmüyor; katalog aranan ada filtrelenip donanım filtreleri temizleniyor.
+
+### Added
+- HF araması: boyut token'ı olmayan (ör. `...-Flash-Base`) modellerin boyutu `safetensors.total` üzerinden tahmin ediliyor.
+
+## [0.1.27] - 2026-09-10
+### Fixed
+- HF araması: HuggingFace araması birebir olduğu için hafif yanlış bir ad (ör. var olmayan `DeepSeek-V4.1-Flash-Base`) sıfır sonuç döndürüyordu. `search_catalog` artık sırayla: birebir sorgu → sondaki değişken ekleri (`Base`/`Instruct`/`GGUF`/`FP8`/`MLX`…) kırpılmış sorgu → bir segment daha kırpılmış sorgu deniyor, böylece yakın isim gerçek repoyu buluyor.
+
+## [0.1.26] - 2026-09-10
+### Added
+- Katalog artık yalnızca ilk ~300 popular/trending modelle sınırlı değil: filtrenin üstünde ayrı ve açıkça etiketlenmiş **"HuggingFace'te ara"** satırı HF üzerinde canlı arama yapıp bulunanları kataloğa ekliyor (`hf_api.search_catalog`, `HFSearchWorker`).
+- `HFSearchWorker` bulunanları cache'e **ekliyor** (üzerine yazmıyor) ve kaç yeni model eklendiğini bildiriyor.
+
 ## [0.1.25] - 2026-09-04
 ### Changed
 - Vision olmayan bir modele resim gönderince gelen ham "HTTP 400 Bad Request" yerine artık net mesaj: "Bu model resim okuyamaz — qwen2.5vl / llava / gemma3-vision gibi bir vision model kullan." (Resimsiz 400'ler eskisi gibi ham gösterilir.)
