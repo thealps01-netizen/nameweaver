@@ -292,7 +292,7 @@ class AlertDialog(QDialog):
         ok_btn.setFixedSize(100, 36)
         ok_btn.setStyleSheet(
             f"QPushButton {{ background: {c.accent}; color: {c.bg}; border-radius: 6px;"
-            " font-weight: bold; font-size: 13px; }}"
+            " font-weight: bold; font-size: 13px; }"
             f"QPushButton:hover {{ background: rgba({_ar},{_ag},{_ab}, 0.8); }}"
         )
         ok_btn.clicked.connect(self.accept)

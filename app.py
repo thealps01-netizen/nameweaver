@@ -1149,7 +1149,7 @@ class MainWindow(QMainWindow):
                 btn.setStyleSheet(
                     f"QFrame#theme_choice_card {{ background: {tc.accent}; border-radius: 8px; }}"
                     f"QFrame#theme_choice_card QLabel {{ color: {tc.accent_text};"
-                    " background: transparent; }}"
+                    " background: transparent; }"
                 )
             else:
                 btn.setStyleSheet(

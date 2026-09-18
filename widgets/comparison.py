@@ -159,7 +159,7 @@ class ComparisonDialog(QDialog):
             card = QFrame()
             card.setStyleSheet(
                 f"QFrame {{ background: {c.bg_alt}; border: 1px solid {c.border};"
-                " border-radius: 12px; }}"
+                " border-radius: 12px; }"
             )
             card_layout = QVBoxLayout(card)
             card_layout.setContentsMargins(12, 10, 12, 10)

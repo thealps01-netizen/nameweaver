@@ -288,6 +288,40 @@ def test_installer_downloader_accepts_a_matching_checksum(qtbot, tmp_path):
     assert finished[0].endswith("Nameweaver_Setup.exe")
 
 
+# ── Brace escapes inside f-strings ────────────────────────────────────────────
+
+
+def test_no_f_string_keeps_an_unexpanded_brace_escape():
+    """A `{{` or `}}` left inside an f-string segment reaches QSS/regex verbatim.
+
+    Splitting a long f-string to stay under the line limit is the usual way this
+    happens (ruff E501): the continuation is a *plain* string, so it is not
+    processed as an f-string and an escaped brace written there stays doubled.
+    Verified on Python 3.11 and 3.14: `f"a{{" "b}}"` evaluates to `a{b}}` — the
+    f-string half unescapes its braces, the plain half keeps both.
+    """
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    offenders = []
+    for path in sorted(root.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.JoinedStr):
+                for part in node.values:
+                    if (
+                        isinstance(part, ast.Constant)
+                        and isinstance(part.value, str)
+                        and ("{{" in part.value or "}}" in part.value)
+                    ):
+                        offenders.append(f"{path.name}:{node.lineno} {part.value!r}")
+
+    assert offenders == [], "unexpanded brace escape(s): " + "; ".join(offenders)
+
+
 # ── Main window: the primary flow ─────────────────────────────────────────────
 
 
