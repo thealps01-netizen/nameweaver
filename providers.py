@@ -44,7 +44,8 @@ def _http_get_json(url: str, timeout: float = TIMEOUT_SECONDS) -> dict | list | 
     try:
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout, context=_ssl_context()) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            data: dict | list = json.loads(resp.read().decode("utf-8"))
+            return data
     except Exception as exc:
         logger.debug("HTTP GET %s failed: %s", url, exc)
         return None

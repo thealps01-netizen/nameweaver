@@ -29,9 +29,14 @@ jobs:
         # satisfy E501 is what produced the QSS brace bug fixed in ff7e243.
         run: ruff format --check .
 
-      - name: Type check (mypy, advisory)
-        # Advisory until the Qt-stub union-attr findings are worked through;
-        # see the "mypy" note in CONTRIBUTING.md.
+      - name: Type check (core)
+        # Blocking: `mypy` with no arguments checks the modules listed under
+        # [tool.mypy] files — the annotation-complete core.
+        run: mypy
+
+      - name: Type check (full tree, advisory)
+        # Advisory until the Qt-stub union-attr findings in the PyQt layer are
+        # worked through; see the "mypy" note in CONTRIBUTING.md.
         continue-on-error: true
         run: mypy .
 

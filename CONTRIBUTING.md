@@ -11,6 +11,18 @@ python -m venv .venv
 .venv\Scripts\python -m pytest tests/ -v
 ```
 
+## Kapılar (CI'da bloklayıcı)
+```bash
+ruff check .                              # lint
+ruff format --check .                     # biçim
+mypy                                      # tipler: [tool.mypy] files = çekirdek modüller
+pytest tests/ --cov=. --cov-fail-under=55 # testler + kapsam tabanı
+```
+
+`mypy .` (tüm ağaç) **bilgilendiricidir**: PyQt katmanındaki `union-attr`
+bulgularının çoğu Qt stub'larından gelir. Bir modül `mypy .` altında sıfıra
+inince `pyproject.toml` içindeki `files` listesine ekleyip kapıyı büyütün.
+
 ## Sürüm & yayın
 - Geliştirmede sürümü **yalnızca** [`version.py`](version.py) içinde tanımla; yayında
   sürüm **git tag'inden** gelir ve CI onu `version.py` + `file_version_info.txt` içine

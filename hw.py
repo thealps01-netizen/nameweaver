@@ -746,13 +746,13 @@ def _detect_windows_gpu(specs: SystemSpecs) -> None:
         return
 
     # Sort: discrete first, integrated last — keep both so users can toggle iGPU
-    discrete = [g for g in raw_gpus if not g.integrated]
-    integrated = [g for g in raw_gpus if g.integrated]
-    # If no discrete GPU, integrated becomes the default-enabled one
-    if not discrete:
-        for g in integrated:
+    discrete_gpus = [g for g in raw_gpus if not g.integrated]
+    integrated_gpus = [g for g in raw_gpus if g.integrated]
+    # With no discrete GPU the integrated one becomes the default-enabled one
+    if not discrete_gpus:
+        for g in integrated_gpus:
             g.enabled = True
-    specs.gpus = discrete + integrated
+    specs.gpus = discrete_gpus + integrated_gpus
 
     specs.has_gpu = any(g.enabled and g.vram_gb > 0 for g in specs.gpus) or bool(specs.gpus)
     primary = _select_primary(specs.gpus) or specs.gpus[0]

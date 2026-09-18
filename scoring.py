@@ -652,6 +652,9 @@ def rank_models(
     """Sort model fits with TOO_TIGHT always last."""
 
     def sort_key(mf: ModelFit) -> tuple:
+        # Third key is a float for the numeric columns (negated, so descending)
+        # and a str for the text ones (release date / use case / provider).
+        val: float | str
         # Primary: installed models first (if enabled)
         installed = 0 if (installed_first and mf.installed) else 1
         # Secondary: TOO_TIGHT always last

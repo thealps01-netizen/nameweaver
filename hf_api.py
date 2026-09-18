@@ -177,7 +177,8 @@ def _http_json(url: str, token: str = "", timeout: float = 10.0) -> object | Non
         req = _build_request(url, token)
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
-        return json.loads(raw)
+        parsed: object = json.loads(raw)
+        return parsed
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
             logger.warning("HF auth failed (%d) — check your HF token: %s", exc.code, url)

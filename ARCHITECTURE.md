@@ -254,7 +254,7 @@ build.bat / release.yml
 - **`build.bat`** — Yerel Windows derleme; Inno Setup'ı PATH + yaygın konumlarda arar, yoksa portable exe bırakır.
 
 ### CI/CD (`.github/workflows/`)
-- **`test.yml`** — her push (main) ve PR'da, windows-latest + Python 3.11: **`ruff check .`** (bloklayıcı) → **`mypy .`** (bilgilendirici; Qt stub kaynaklı `union-attr` gürültüsü temizlenene kadar bloklamıyor) → **`pytest tests/ --cov=. --cov-fail-under=55`** — **PR kapısı**.
+- **`test.yml`** — her push (main) ve PR'da, windows-latest + Python 3.11: **`ruff check .`** + **`ruff format --check .`** (bloklayıcı) → **`mypy`** (bloklayıcı, `[tool.mypy] files` = çekirdek modüller) → **`mypy .`** (bilgilendirici; PyQt katmanının Qt-stub `union-attr` gürültüsü) → **`pytest tests/ --cov=. --cov-fail-under=55`** — **PR kapısı**.
 - **`release.yml`** — `v*.*.*` tag push'unda: test → sürüm enjekte → icon → PyInstaller → Inno Setup → SHA256 → **GitHub Release** (otomatik notlar).
 
 > ⚠️ **Bilinen tuzak** (hafızadan): Dev makinesi Python 3.14, CI Python 3.11. 3.12+ sözdizimi (ör. f-string `{}` içinde backslash) yerelde geçer ama CI/release build'i kırar. Sürüm çıkmadan önce buna dikkat.

@@ -41,3 +41,27 @@ show_missing = true
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
+# Bare `mypy` is the blocking CI gate, and it covers the annotation-complete
+# core only. The PyQt layer is still noisy (Qt stubs make nearly every
+# QApplication.instance() a union-attr), so it is checked by `mypy .` and stays
+# advisory in CI. Add a module here once it reaches zero under `mypy .`.
+files = [
+    "cfg.py",
+    "downloader.py",
+    "hf_api.py",
+    "hw.py",
+    "models.py",
+    "provider_control.py",
+    "providers.py",
+    "runner.py",
+    "scoring.py",
+    "themes.py",
+    "version.py",
+]
+
+# These ship no type information; no change on our side can silence that. The
+# core-only run reports them as an unused section — qtawesome and pygments are
+# imported by the PyQt layer, which only `mypy .` reaches.
+[[tool.mypy.overrides]]
+module = ["psutil", "qtawesome", "pygments", "pygments.*"]
+ignore_missing_imports = true

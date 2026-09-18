@@ -70,7 +70,8 @@ def _parse_sse_data(raw: bytes) -> dict | None:
     if payload == "[DONE]":
         return {"_done": True}
     try:
-        return json.loads(payload)
+        event: dict = json.loads(payload)
+        return event
     except json.JSONDecodeError:
         return None
 
@@ -322,7 +323,7 @@ def available_providers_for_model(
     for p in provider_statuses:
         if not getattr(p, "available", False):
             continue
-        installed = getattr(p, "installed_models", set()) or set()
+        installed: set[str] = getattr(p, "installed_models", set()) or set()
         if name_matches_installed(model_name, installed):
             result.append(p.name)
     return result
@@ -339,7 +340,7 @@ def installed_model_ids(model_name: str, provider_statuses: Iterable) -> dict[st
 
     result: dict[str, str] = {}
     for p in provider_statuses:
-        installed = getattr(p, "installed_models", set()) or set()
+        installed: set[str] = getattr(p, "installed_models", set()) or set()
         for inst in installed:
             if name_matches_installed(model_name, [inst]):
                 result[p.name] = inst
