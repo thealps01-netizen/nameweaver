@@ -32,7 +32,14 @@ from PyQt6.QtWidgets import (
 from providers import ProviderState, ProviderStatus
 from themes import get_theme
 
-COLUMNS = ["Model", "Engine", "Params", "Size", "Quant", "Catalog", "Chat", ""]
+COLUMNS = ["Model", "Engine", "Params", "Size", "Quant", "Catalog", "Chat", "Run"]
+
+# The Run column holds a widget, not an item: the header's ResizeToContents
+# measures it once and never again, so a font or padding change (the theme's
+# stylesheet) left a button narrower than its own text and it rendered as "…".
+# The width comes from the buttons themselves instead.
+RUN_COLUMN = len(COLUMNS) - 1
+RUN_COLUMN_MIN = 76
 
 
 def _human_size(num_bytes: int) -> str:
@@ -117,7 +124,13 @@ class MyModelsView(QWidget):
         header_view = self._table.horizontalHeader()
         header_view.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for col in range(1, len(COLUMNS)):
-            header_view.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
+            mode = (
+                QHeaderView.ResizeMode.Fixed
+                if col == RUN_COLUMN
+                else QHeaderView.ResizeMode.ResizeToContents
+            )
+            header_view.setSectionResizeMode(col, mode)
+        self._table.setColumnWidth(RUN_COLUMN, RUN_COLUMN_MIN)
         self._table.itemSelectionChanged.connect(self._on_selection_changed)
         card_layout.addWidget(self._table)
         root.addWidget(card, stretch=1)
@@ -193,6 +206,7 @@ class MyModelsView(QWidget):
             )
         self._table.setVisible(not empty)
         self._on_selection_changed()
+        self._fit_run_column()
 
     def _render_engine_notices(self, engines_with_rows: set[str]) -> None:
         """One line for the engines that need starting, one for the absent ones.
@@ -252,6 +266,20 @@ class MyModelsView(QWidget):
             lbl.setWordWrap(True)
             lbl.setStyleSheet(f"color: {c.fg_muted}; background: transparent; font-size: 11px;")
             self._engine_notices.addWidget(lbl)
+
+    def _fit_run_column(self) -> None:
+        """Give the Run column the width its own buttons ask for.
+
+        A cell widget's size hint already carries the text, the font and the
+        padding, so measuring the built buttons is the only width that cannot
+        elide them.
+        """
+        hints = [
+            widget.sizeHint().width()
+            for row in range(self._table.rowCount())
+            if (widget := self._table.cellWidget(row, RUN_COLUMN)) is not None
+        ]
+        self._table.setColumnWidth(RUN_COLUMN, max([RUN_COLUMN_MIN, *hints]) + 8)
 
     def _append_row(self, row: dict, c) -> None:
         r = self._table.rowCount()
@@ -317,7 +345,14 @@ class MyModelsView(QWidget):
     def _on_selection_changed(self) -> None:
         row = self._selected_row()
         self._remove_btn.setEnabled(row is not None)
-        self._catalog_btn.setEnabled(bool(row and row.get("catalog")))
+        self._remove_btn.setToolTip(
+            "" if row is not None else "Select a row first — removal deletes its files"
+        )
+        has_catalog = bool(row and row.get("catalog"))
+        self._catalog_btn.setEnabled(has_catalog)
+        self._catalog_btn.setToolTip(
+            "" if has_catalog else "Select a row that is also in the catalog"
+        )
 
     def _on_remove_clicked(self) -> None:
         row = self._selected_row()

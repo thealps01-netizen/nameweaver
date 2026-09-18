@@ -204,3 +204,36 @@ class TestEngineListings:
             engine="Ollama", id="x", capabilities=("completion", "tools")
         ).engine_reports_no_chat
         assert not InstalledModel(engine="Ollama", id="x").engine_reports_no_chat
+
+
+def test_the_run_column_fits_its_buttons(qtbot):
+    """The Run column holds widgets, which the header cannot measure — leaving it
+    to ResizeToContents elided the button down to "…" as soon as the theme's
+    stylesheet changed the font. The width has to come from the buttons."""
+    view = MyModelsView("dark")
+    qtbot.addWidget(view)
+    view.set_rows([_row()], {"Ollama": _status("Ollama")})
+    view.resize(1200, 300)
+    view.show()
+
+    button = view._table.cellWidget(0, 7)
+
+    assert button is not None
+    assert view._table.columnWidth(7) >= button.sizeHint().width()
+    assert view._table.horizontalHeader().sectionResizeMode(7).name == "Fixed"
+
+
+def test_the_run_column_grows_with_the_button(qtbot):
+    """Whatever the font does to the hint, the column follows it."""
+    view = MyModelsView("dark")
+    qtbot.addWidget(view)
+    view.set_rows([_row()], {"Ollama": _status("Ollama")})
+    view.resize(1200, 300)
+    view.show()
+    before = view._table.columnWidth(7)
+
+    view.setStyleSheet("QPushButton { padding: 4px 24px; font-size: 15px; }")
+    view.set_theme("dark")  # re-renders the rows, which re-measures the column
+
+    assert view._table.columnWidth(7) >= before
+    assert view._table.columnWidth(7) >= view._table.cellWidget(0, 7).sizeHint().width()
