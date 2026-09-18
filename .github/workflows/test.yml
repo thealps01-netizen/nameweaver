@@ -43,4 +43,4 @@ jobs:
       - name: Run tests
         # The coverage floor is a floor, not a target: it exists to stop the UI
         # layer from sliding back to 0% unnoticed.
-        run: pytest tests/ -q --cov=. --cov-report=term-missing --cov-fail-under=55
+        run: pytest tests/ -q --cov=. --cov-report=term-missing --cov-fail-under=58

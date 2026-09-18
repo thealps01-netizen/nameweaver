@@ -225,12 +225,16 @@ Gömülü model kataloğu. Her giriş `LlmModel` alanlarıyla birebir eşleşir 
 
 ---
 
-### 3.5 Test (`tests/` — ~2.575 satır, 14 test dosyası, 242 test)
-`pytest` + `pytest-qt`. Kapsam tabanı **%55** (ölçülen %57; `tests/` ve `tools/` raporun dışında).
+### 3.5 Test (`tests/` — ~3.024 satır, 15 test dosyası, 280 test)
+`pytest` + `pytest-qt`. Kapsam tabanı **%58** (ölçülen %59; `tests/` ve `tools/` raporun dışında).
 
 **Saf çekirdek (PyQt'siz):** `test_hw.py`, `test_models.py`, `test_model_classification.py`, `test_scoring.py` (en büyük — 427 satır), `test_providers.py`, `test_provider_control.py`, `test_runner.py`, `test_downloader.py`, `test_hf_api.py`, `test_engine_status.py`, `test_markdown_render.py`, `test_themes.py`, `test_version.py`.
 
-**UI smoke (`test_ui_smoke.py`, 16 test):** PyQt katmanını offscreen platformda ( `conftest.py` → `QT_QPA_PLATFORM=offscreen`) kurar. Kapsananlar: ana pencerenin açılışı ve birincil akış (specs → skorlama worker'ı → Score sütununa göre sıralı tablo), `DetailPanel` aksiyon kuralları (GGUF'ta Download açık · Run yalnızca kuruluyken açık · AWQ/GPTQ'da ikisi de kapalı), her widget ve diyaloğun kurulması (Qt API'si yeniden adlandırıldığında ilk burada kırılır), ve `InstallerDownloader`'ın sidecar yokken ya da hash uyuşmazken installer'ı **çalıştırmayı reddetmesi**. Updater testleri `file://` URL kullanır — ağ gerekmez. `conftest.py` ortak fixture'ları sağlar.
+**UI smoke (`test_ui_smoke.py`, 17 test):** PyQt katmanını offscreen platformda ( `conftest.py` → `QT_QPA_PLATFORM=offscreen`) kurar. Kapsananlar: ana pencerenin açılışı ve birincil akış (specs → skorlama worker'ı → Score sütununa göre sıralı tablo), `DetailPanel` aksiyon kuralları (GGUF'ta Download açık · Run yalnızca kuruluyken açık · AWQ/GPTQ'da ikisi de kapalı), her widget ve diyaloğun kurulması (Qt API'si yeniden adlandırıldığında ilk burada kırılır), `InstallerDownloader`'ın sidecar yokken ya da hash uyuşmazken installer'ı **çalıştırmayı reddetmesi**, ve f-string'lerde açılmamış `{{`/`}}` kaçışı taraması. Updater testleri `file://` URL kullanır — ağ gerekmez.
+
+**Güncelleme kararı (`test_updater.py`, 22 test):** sürüm ayrıştırma/karşılaştırma, `.exe` asset seçimi, atlanan sürüm deposu, ve `UpdateChecker._run()`'ın dört kararı (yeni sürüm → teklif · atlanmış → sessiz · asset yok → sessiz · ağ yok → `check_failed`).
+
+**Motor kontrolü (`test_provider_control.py`, 29 test):** `run_install_command` allowlist kapısı (üretmediği komutu reddeder), argv vs `shell=True` ayrımı (yalnızca Linux `curl|sh`), platform → paket yöneticisi eşlemesi, ve `remove_model` yolları (Ollama DELETE, 404, erişilemez motor, LM Studio "My Models" yönlendirmesi, gerçek klasör silme). `conftest.py` ortak fixture'ları sağlar.
 
 ---
 
@@ -254,7 +258,7 @@ build.bat / release.yml
 - **`build.bat`** — Yerel Windows derleme; Inno Setup'ı PATH + yaygın konumlarda arar, yoksa portable exe bırakır.
 
 ### CI/CD (`.github/workflows/`)
-- **`test.yml`** — her push (main) ve PR'da, windows-latest + Python 3.11: **`ruff check .`** + **`ruff format --check .`** (bloklayıcı) → **`mypy`** (bloklayıcı, `[tool.mypy] files` = çekirdek modüller) → **`mypy .`** (bilgilendirici; PyQt katmanının Qt-stub `union-attr` gürültüsü) → **`pytest tests/ --cov=. --cov-fail-under=55`** — **PR kapısı**.
+- **`test.yml`** — her push (main) ve PR'da, windows-latest + Python 3.11: **`ruff check .`** + **`ruff format --check .`** (bloklayıcı) → **`mypy`** (bloklayıcı, `[tool.mypy] files` = çekirdek modüller) → **`mypy .`** (bilgilendirici; PyQt katmanının Qt-stub `union-attr` gürültüsü) → **`pytest tests/ --cov=. --cov-fail-under=58`** — **PR kapısı**.
 - **`release.yml`** — `v*.*.*` tag push'unda: test → sürüm enjekte → icon → PyInstaller → Inno Setup → SHA256 → **GitHub Release** (otomatik notlar).
 
 > ⚠️ **Bilinen tuzak** (hafızadan): Dev makinesi Python 3.14, CI Python 3.11. 3.12+ sözdizimi (ör. f-string `{}` içinde backslash) yerelde geçer ama CI/release build'i kırar. Sürüm çıkmadan önce buna dikkat.
