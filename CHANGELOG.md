@@ -6,6 +6,19 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) temellidir ve
 
 ## [Unreleased]
 
+## [0.1.30] - 2026-09-18
+### Changed
+- **Kullanıcıya görünür davranış değişikliği yok** — bu sürüm kalite, test ve derleme altyapısını taşır; arayüz ve model akışları 0.1.29 ile aynı.
+- Sürüm metadatası senkronlandı: `pyproject.toml`, `nameweaver.iss` ve `file_version_info.txt` 0.1.12'de kalmıştı; artık `version.py` ile aynı. (Yayınlar etkilenmemişti: `release.yml` ve `build.bat` sürümü git tag'inden enjekte ediyor. Ama elle `ISCC nameweaver.iss` çalıştıran biri 0.1.12 installer üretiyordu.)
+- `ruff format` tüm ağaca uygulandı: satır sonları artık formatter'ın; elle satır bölme bırakıldı.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) sürüm kontrolüne alındı; CHANGELOG'daki 0.1.26–0.1.29 boşluğu kapatıldı.
+
+### Added
+- **CI kapıları**: `ruff check .` ve `ruff format --check .` (bloklayıcı), çekirdek modüller için **bloklayıcı `mypy`** (PyQt katmanı bilgilendirici), testler `--cov` ile ve **%58 kapsam tabanıyla**.
+- **Arayüz testleri** (`tests/test_ui_smoke.py`, 17 test): ana pencere ve birincil akış (donanım → skorlama → skora göre sıralı tablo), detay paneli aksiyon kuralları (GGUF indirilebilir · Run yalnızca kuruluyken · AWQ/GPTQ'da ikisi de kapalı), tüm widget/diyalogların kurulması, ve güncelleyicinin doğrulanmamış installer'ı çalıştırmayı reddetmesi. Qt offscreen platformda koşar (masaüstü oturumu gerekmez).
+- **Güncelleme ve motor kontrolü testleri** (`tests/test_updater.py` 22 test, `tests/test_provider_control.py` 11 → 29 test): sürüm karşılaştırma, `.exe` asset seçimi, atlanan sürüm deposu, `UpdateChecker`'ın dört kararı; kur komutu allowlist'i (üretmediği komutu reddeder, yalnızca Linux `curl|sh` kabuktan geçer) ve model silme yolları.
+- Test kapsamı %34 → **%59** (updater %25 → %39, `provider_control` %30 → %51).
+
 ## [0.1.29] - 2026-09-10
 ### Reverted
 - 0.1.26–0.1.28'de eklenen **canlı HuggingFace arama** geri alındı (`2cf57c3`): arama kutusu, `HFSearchWorker`, kırpılmış-sorgu/URL fallback'leri ve filtre çubuğundaki sonuç-gösterme yardımcısı kaldırıldı. Katalog yeniden v0.1.25 davranışında: popular/trending taraması + yalnızca **yüklenmiş modeller üzerinde** filtre araması.

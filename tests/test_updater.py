@@ -9,6 +9,13 @@ from unittest.mock import patch
 
 import updater
 from updater import _find_installer_asset, _is_newer, _parse
+from version import __version__
+
+
+def _newer_tag() -> str:
+    """A tag strictly newer than the running version, so a bump cannot break these."""
+    major, minor, patch = (int(part) for part in __version__.split("."))
+    return f"v{major}.{minor}.{patch + 1}"
 
 
 class TestVersionParsing:
@@ -91,7 +98,8 @@ class TestUpdateCheckerDecision:
         return {"tag_name": tag, "body": "release notes", "assets": assets}
 
     def test_a_newer_release_is_offered_with_its_installer(self, qtbot, monkeypatch):
-        monkeypatch.setattr(updater, "_fetch_latest", lambda owner, repo: self._release("v0.1.30"))
+        tag = _newer_tag()
+        monkeypatch.setattr(updater, "_fetch_latest", lambda owner, repo: self._release(tag))
         monkeypatch.setattr(updater, "_get_skipped_version", lambda: "")
         checker = self._checker(monkeypatch)
         offered = []
@@ -99,11 +107,12 @@ class TestUpdateCheckerDecision:
 
         checker._run()
 
-        assert offered == [("v0.1.30", "https://host/Nameweaver_Setup.exe", "release notes")]
+        assert offered == [(tag, "https://host/Nameweaver_Setup.exe", "release notes")]
 
     def test_an_already_skipped_version_is_not_offered_again(self, qtbot, monkeypatch):
-        monkeypatch.setattr(updater, "_fetch_latest", lambda owner, repo: self._release("v0.1.30"))
-        monkeypatch.setattr(updater, "_get_skipped_version", lambda: "v0.1.30")
+        tag = _newer_tag()
+        monkeypatch.setattr(updater, "_fetch_latest", lambda owner, repo: self._release(tag))
+        monkeypatch.setattr(updater, "_get_skipped_version", lambda: tag)
         checker = self._checker(monkeypatch)
         offered, no_update = [], []
         checker.update_available.connect(lambda *args: offered.append(args))
@@ -116,7 +125,7 @@ class TestUpdateCheckerDecision:
 
     def test_a_newer_release_without_an_exe_is_not_offered(self, qtbot, monkeypatch):
         monkeypatch.setattr(
-            updater, "_fetch_latest", lambda owner, repo: self._release("v0.1.30", url=None)
+            updater, "_fetch_latest", lambda owner, repo: self._release(_newer_tag(), url=None)
         )
         monkeypatch.setattr(updater, "_get_skipped_version", lambda: "")
         checker = self._checker(monkeypatch)
