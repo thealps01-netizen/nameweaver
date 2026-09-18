@@ -26,7 +26,16 @@ target-version = "py310"
 select = ["E", "F", "W", "I"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# NOTE: pytest.ini wins over this section — it is kept only so editors that read
+# pyproject.toml still see the test layout. pytest.ini carries the real config
+# (pythonpath = . so the root modules import from tests/).
+
+[tool.coverage.run]
+# The report is about the app, not about the tests themselves.
+omit = ["tests/*", "tools/*"]
+
+[tool.coverage.report]
+show_missing = true
 
 [tool.mypy]
 python_version = "3.10"

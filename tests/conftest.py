@@ -1,8 +1,15 @@
 """Shared test fixtures."""
 
-import pytest
+import os
+
+# The suite is headless: tests/test_ui_smoke.py constructs real widgets, and CI
+# runners have no desktop session. Must be set before any QApplication exists.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
