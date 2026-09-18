@@ -20,6 +20,12 @@ logs/
 .idea/
 *.swp
 .claude/settings.local.json
+.serena/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Windows
 Thumbs.db
