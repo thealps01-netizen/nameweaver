@@ -2,7 +2,9 @@
 
 import json
 
-from models import QUANT_BPP, LlmModel, UseCase, load_models, merge_models
+import pytest
+
+from models import QUANT_BPP, LlmModel, UseCase, load_models, merge_models, search_matches
 
 
 class TestLlmModel:
@@ -158,3 +160,41 @@ class TestMergeModels:
         # Sorted by provider then name
         assert merged[0].provider == "alpha"
         assert merged[1].provider == "zeta"
+
+
+class TestSearchMatches:
+    """The search box is what most people use to find a model by name."""
+
+    @pytest.mark.parametrize(
+        "query, name",
+        [
+            ("qwen 3b", "Qwen2.5-3B"),
+            ("qwen2.5 3b", "Qwen2.5-3B"),
+            ("llama3.1", "Llama-3.1-8B-Instruct"),
+            ("llama 3.1 8b", "Llama-3.1-8B-Instruct"),
+            ("deepseek r1 7b", "DeepSeek-R1-Distill-Qwen-7B"),
+            ("nomic embed", "nomic-embed-text-v1.5"),
+            ("mixtral 8x7b", "Mixtral-8x7B-Instruct"),
+        ],
+    )
+    def test_what_a_person_types_finds_the_model(self, query, name):
+        """Literal substring matching returned 0 for every one of these."""
+        assert search_matches(query, name) is True
+
+    def test_every_part_must_fit(self):
+        """Extra words narrow the result instead of being ignored."""
+        assert search_matches("qwen 3b", "Qwen2.5-3B") is True
+        assert search_matches("qwen 70b", "Qwen2.5-3B") is False
+
+    def test_the_provider_is_searchable_too(self):
+        assert search_matches("alibaba", "Qwen2.5-3B", provider="Alibaba") is True
+
+    def test_an_empty_query_filters_nothing(self):
+        assert search_matches("", "Qwen2.5-3B") is True
+        assert search_matches("   ", "Qwen2.5-3B") is True
+
+    def test_matches_the_literal_rule_made_still_match(self):
+        """The new rule is a superset: no search that worked before stops working."""
+        assert search_matches("qwen2.5-3b", "Qwen2.5-3B") is True
+        assert search_matches("qwen", "Qwen2.5-3B") is True
+        assert search_matches("3b", "Qwen2.5-13B") is True  # substring, as before

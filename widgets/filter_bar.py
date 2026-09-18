@@ -2,6 +2,7 @@
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -18,7 +19,7 @@ class FilterBar(QWidget):
     """Horizontal bar with search input and filter dropdowns.
 
     Row 1: search, provider, use-case, fit level
-    Row 2: quantization, license, capability
+    Row 2: quantization, license, capability, runnable-only toggle
     """
 
     filters_changed = pyqtSignal()
@@ -107,6 +108,16 @@ class FilterBar(QWidget):
         self._min_tps_combo.setToolTip("Target tokens per second — models below this are hidden")
         self._min_tps_combo.currentIndexChanged.connect(self._on_filter_changed)
         outer.addWidget(self._min_tps_combo, stretch=1)
+
+        # Formats none of the local engines can load are hidden by default; the
+        # toggle brings them back so nothing in the catalog is unreachable.
+        self._runnable_checkbox = QCheckBox("Runnable only")
+        self._runnable_checkbox.setChecked(True)
+        self._runnable_checkbox.setToolTip(
+            "Hide formats your engines cannot load (AWQ, GPTQ, MLX…) — untick to see them"
+        )
+        self._runnable_checkbox.stateChanged.connect(self._on_filter_changed)
+        outer.addWidget(self._runnable_checkbox)
 
         # Quality ↔ Speed preference slider — biases the composite score
         # without re-analyzing models (uses stored score_components).
@@ -201,6 +212,7 @@ class FilterBar(QWidget):
             self._min_tps_combo,
         ):
             combo.setCurrentIndex(0)
+        self._runnable_checkbox.setChecked(True)
 
     @property
     def search_text(self) -> str:
@@ -235,6 +247,11 @@ class FilterBar(QWidget):
         return self._cap_combo.currentData() or ""
 
     @property
+    def runnable_only(self) -> bool:
+        """Whether formats no local engine can load are hidden."""
+        return self._runnable_checkbox.isChecked()
+
+    @property
     def min_tps(self) -> float:
         """Target minimum tokens/sec (0 = no filter)."""
         try:
@@ -254,6 +271,7 @@ class FilterBar(QWidget):
             "license": self.license_filter,
             "capability": self.capability_filter,
             "min_tps": self._min_tps_combo.currentData() or "0",
+            "runnable_only": self.runnable_only,
         }
 
     def set_filters(self, filters: dict) -> None:
@@ -277,3 +295,7 @@ class FilterBar(QWidget):
             if idx >= 0:
                 combo.setCurrentIndex(idx)
             combo.blockSignals(False)
+
+        self._runnable_checkbox.blockSignals(True)
+        self._runnable_checkbox.setChecked(bool(filters.get("runnable_only", True)))
+        self._runnable_checkbox.blockSignals(False)

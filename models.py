@@ -252,6 +252,28 @@ _GENERIC_WORDS: frozenset[str] = frozenset(
 _VARIANT_WORDS: frozenset[str] = frozenset({"instruct", "instruction", "chat", "it", "base"})
 
 
+def _search_key(text: str) -> str:
+    """A name reduced to what a search may rely on: lowercase, separators gone."""
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def search_matches(query: str, name: str, provider: str = "") -> bool:
+    """Whether a typed query means this model.
+
+    The box used to ask for a literal substring, so 'llama3.1' found nothing in
+    'Llama-3.1-8B' and 'qwen 3b' found nothing in 'Qwen2.5-3B'. Now the query is
+    split on spaces and every part must appear in the separator-free name and
+    provider. That keeps every match the literal rule made and adds the ones it
+    lost — the parts have to *all* fit, so extra words narrow the result instead
+    of widening it.
+    """
+    keys = [key for key in (_search_key(part) for part in query.split()) if key]
+    if not keys:
+        return True
+    haystack = _search_key(f"{name} {provider}")
+    return all(key in haystack for key in keys)
+
+
 def _size_token(name: str) -> str:
     """Extract the parameter-size token (e.g. '8b', '2b', '8x7b'); '' if none."""
     m = re.search(r"\b(\d+(?:\.\d+)?x\d+(?:\.\d+)?|\d+(?:\.\d+)?)b\b", name.lower())

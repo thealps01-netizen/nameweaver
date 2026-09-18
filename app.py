@@ -1839,6 +1839,7 @@ class MainWindow(QMainWindow):
             quant=fb.quant_filter,
             license=fb.license_filter,
             capability=fb.capability_filter,
+            runnable_only=fb.runnable_only,
             min_tps=fb.min_tps,
         )
         visible = self._filter_proxy.rowCount()

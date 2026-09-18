@@ -22,6 +22,7 @@ from models import (
     is_engine_compatible,
     is_reupload,
     is_trusted_source,
+    search_matches,
     size_class,
 )
 from scoring import FitLevel, ModelFit, RunMode, pc_comfort, runnability
@@ -405,6 +406,7 @@ class ModelFilterProxy(QSortFilterProxyModel):
         self._quant = ""
         self._license = ""
         self._capability = ""
+        self._runnable_only = True
         self._min_tps = 0.0
         self.setDynamicSortFilter(True)
 
@@ -418,6 +420,7 @@ class ModelFilterProxy(QSortFilterProxyModel):
         quant: str = "",
         license: str = "",
         capability: str = "",
+        runnable_only: bool = True,
         min_tps: float = 0.0,
     ):
         self._search_text = search.lower()
@@ -428,6 +431,7 @@ class ModelFilterProxy(QSortFilterProxyModel):
         self._quant = quant
         self._license = license.lower()
         self._capability = capability.lower()
+        self._runnable_only = runnable_only
         self._min_tps = max(0.0, float(min_tps))
         self.invalidateFilter()
 
@@ -440,11 +444,17 @@ class ModelFilterProxy(QSortFilterProxyModel):
         if fit is None:
             return False
 
-        # Search text — match against name and provider
-        if self._search_text:
-            searchable = f"{fit.model.name} {fit.model.provider}".lower()
-            if self._search_text not in searchable:
-                return False
+        # Search text — every typed part must appear in the name or provider
+        if self._search_text and not search_matches(
+            self._search_text, fit.model.name, fit.model.provider
+        ):
+            return False
+
+        # Formats no local engine can load are hidden unless asked for: a sixth
+        # of the catalog is AWQ/GPTQ/MLX, and a row whose Download can never be
+        # enabled is noise. The filter bar's toggle shows them.
+        if self._runnable_only and not is_engine_compatible(fit.model.format):
+            return False
 
         # Provider filter
         if self._provider and fit.model.provider.lower() != self._provider:

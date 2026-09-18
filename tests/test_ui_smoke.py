@@ -555,3 +555,75 @@ def test_a_format_no_engine_can_run_never_claims_an_engine_model(
     assert gguf.installed_providers == ["Ollama"]  # the names do line up
     assert awq_entry.installed_providers == []
     assert awq_entry.likely_providers == []
+
+
+class TestCatalogDefaults:
+    """What the catalog shows before the user touches anything."""
+
+    def _proxy_with(self, fits):
+        from widgets.model_table import ModelFilterProxy, ModelTableModel
+
+        source = ModelTableModel()
+        source.set_data(list(fits))
+        proxy = ModelFilterProxy()
+        proxy.setSourceModel(source)
+        return source, proxy
+
+    def _names(self, source, proxy):
+        return sorted(
+            source.get_fit(proxy.mapToSource(proxy.index(row, 0)).row()).model.name
+            for row in range(proxy.rowCount())
+        )
+
+    def test_a_format_no_engine_can_load_is_hidden_by_default(
+        self, qtbot, sample_specs, small_model
+    ):
+        gguf = _fit(small_model, sample_specs)
+        awq = _fit(LlmModel(name="Awq-Only-7B", format="awq"), sample_specs)
+
+        source, proxy = self._proxy_with([gguf, awq])
+
+        assert self._names(source, proxy) == [small_model.name]
+
+    def test_the_toggle_brings_them_back(self, qtbot, sample_specs, small_model):
+        gguf = _fit(small_model, sample_specs)
+        awq = _fit(LlmModel(name="Awq-Only-7B", format="awq"), sample_specs)
+        source, proxy = self._proxy_with([gguf, awq])
+
+        proxy.set_filters(runnable_only=False)
+
+        assert self._names(source, proxy) == ["Awq-Only-7B", small_model.name]
+
+    def test_a_typed_search_needs_every_word(self, qtbot, sample_specs):
+        small = _fit(LlmModel(name="Qwen2.5-3B", format="gguf"), sample_specs)
+        big = _fit(LlmModel(name="Qwen2.5-70B", format="gguf"), sample_specs)
+        source, proxy = self._proxy_with([small, big])
+
+        proxy.set_filters(search="qwen 3b")
+
+        assert self._names(source, proxy) == ["Qwen2.5-3B"]
+
+
+def test_the_filter_bar_starts_hiding_unrunnable_formats(qtbot):
+    bar = FilterBar()
+    qtbot.addWidget(bar)
+
+    assert bar.runnable_only is True
+    assert bar.get_filters()["runnable_only"] is True
+
+    bar._runnable_checkbox.setChecked(False)
+    assert bar.get_filters()["runnable_only"] is False
+
+    bar.reset_filters()
+    assert bar.runnable_only is True  # back to the default view
+
+
+def test_the_filter_bar_restores_the_toggle_from_config(qtbot):
+    bar = FilterBar()
+    qtbot.addWidget(bar)
+
+    bar.set_filters({"runnable_only": False})
+    assert bar.runnable_only is False
+
+    bar.set_filters({})  # an older config carries no such key
+    assert bar.runnable_only is True
