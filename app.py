@@ -8,13 +8,14 @@ import sys
 import traceback
 from pathlib import Path
 
+import qtawesome as qta
 from PyQt6.QtCore import (
     QEasingCurve,
     QPoint,
     QPropertyAnimation,
     QSize,
-    QTimer,
     Qt,
+    QTimer,
 )
 from PyQt6.QtGui import (
     QBrush,
@@ -37,9 +38,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-import qtawesome as qta
 
-from cfg import AppConfig, load_config, save_config, setup_logging
+from cfg import load_config, save_config, setup_logging
 from dialogs import AboutDialog, AlertDialog
 from hw import SystemSpecs
 from models import (
@@ -50,7 +50,7 @@ from models import (
     name_matches_installed,
 )
 from providers import ProviderState, ProviderStatus
-from scoring import ModelFit, analyze_all
+from scoring import ModelFit
 from themes import THEME_LABELS, generate_qss, get_theme
 from updater import UpdateChecker, prompt_and_install
 from version import __version__
@@ -247,7 +247,6 @@ class _SidebarWidget(QWidget):
         self.update()
 
     def paintEvent(self, _event):
-        from PyQt6.QtCore import QRectF
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         R = _RoundedPanel.RADIUS
@@ -378,7 +377,9 @@ class MainWindow(QMainWindow):
         # Icon + App name
         header_icon = QLabel()
         header_icon.setObjectName("header_icon")
-        header_icon.setPixmap(qta.icon("mdi6.head-snowflake-outline", color=tc.accent).pixmap(QSize(36, 36)))
+        header_icon.setPixmap(
+            qta.icon("mdi6.head-snowflake-outline", color=tc.accent).pixmap(QSize(36, 36))
+        )
         header_icon.setFixedSize(40, 40)
         header_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_icon.setStyleSheet("background: transparent;")
@@ -425,7 +426,7 @@ class MainWindow(QMainWindow):
         self._header_bar = self._title_bar
 
         panel_layout.addWidget(self._title_bar)
-        
+
         # We need a horizontal layout that holds Sidebar AND the rest of the body (main+statusbar)
         body_outer_layout = QHBoxLayout()
         body_outer_layout.setContentsMargins(0, 0, 0, 0)
@@ -451,8 +452,7 @@ class MainWindow(QMainWindow):
         main_area = QVBoxLayout()
         main_area.setContentsMargins(0, 0, 0, 0)
         main_area.setSpacing(0)
-        
-        root_layout = body_outer_layout # for status bar later if needed
+
 
         # Collect sidebar buttons for theme-aware icon refresh
 
@@ -469,7 +469,7 @@ class MainWindow(QMainWindow):
         )
         self._sidebar_brand = brand
         sidebar_layout.addWidget(brand)
-        
+
         self._sidebar_brand_sep = _gradient_sep(c.accent, c.border)
         sidebar_layout.addWidget(self._sidebar_brand_sep)
         sidebar_layout.addSpacing(12)
@@ -527,7 +527,9 @@ class MainWindow(QMainWindow):
         sys_title_row.setContentsMargins(0, 10, 0, 0)
         sys_title_row.setSpacing(8)
         sys_icon = QLabel()
-        sys_icon.setPixmap(qta.icon("mdi6.monitor-dashboard", color=tc.accent).pixmap(QSize(22, 22)))
+        sys_icon.setPixmap(
+            qta.icon("mdi6.monitor-dashboard", color=tc.accent).pixmap(QSize(22, 22))
+        )
         sys_icon.setFixedSize(24, 24)
         sys_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sys_icon.setStyleSheet("background: transparent;")
@@ -601,10 +603,12 @@ class MainWindow(QMainWindow):
         overview_title_row = QHBoxLayout()
         overview_title_row.setContentsMargins(0, 0, 0, 0)
         overview_title_row.setSpacing(8)
-        
+
         overview_icon = QLabel()
         overview_icon.setObjectName("overview_icon")
-        overview_icon.setPixmap(qta.icon("mdi6.chart-box-outline", color=tc.accent).pixmap(QSize(22, 22)))
+        overview_icon.setPixmap(
+            qta.icon("mdi6.chart-box-outline", color=tc.accent).pixmap(QSize(22, 22))
+        )
         overview_icon.setFixedSize(24, 24)
         overview_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         overview_title_row.addWidget(overview_icon)
@@ -616,7 +620,7 @@ class MainWindow(QMainWindow):
         )
         overview_title_row.addWidget(section_title)
         overview_title_row.addStretch()
-        
+
         stats_inner.addLayout(overview_title_row)
 
         stats_row = QHBoxLayout()
@@ -656,7 +660,7 @@ class MainWindow(QMainWindow):
         # Restore persisted preference before signals start firing
         self._filter_bar.set_score_preference(self._config.score_preference)
         filter_inner.addWidget(self._filter_bar)
-        
+
         # We need a small margin container so it aligns with models box horizontally
         filter_container = QHBoxLayout()
         filter_container.setContentsMargins(0, 6, 0, 0)
@@ -777,7 +781,7 @@ class MainWindow(QMainWindow):
             val = self._stat_score.findChild(QLabel, "stat_value")
             if val:
                 val.setText(f"{avg:.1f}")
-        
+
         # GPU fit count
         from scoring import FitLevel
         gpu_fit = sum(1 for f in self._fits if f.fit_level in (FitLevel.PERFECT, FitLevel.GOOD))
@@ -1004,7 +1008,9 @@ class MainWindow(QMainWindow):
         # Refresh header icon
         header_icon = self._header_bar.findChild(QLabel, "header_icon")
         if header_icon:
-            header_icon.setPixmap(qta.icon("mdi6.head-snowflake-outline", color=colors.accent).pixmap(QSize(36, 36)))
+            header_icon.setPixmap(
+                qta.icon("mdi6.head-snowflake-outline", color=colors.accent).pixmap(QSize(36, 36))
+            )
 
         # Refresh sidebar icons with new theme colors
         # Refresh sidebar nav button icons
@@ -1024,7 +1030,9 @@ class MainWindow(QMainWindow):
         # Refresh system overview title
         sys_icon = self.findChild(QLabel, "sys_title_icon")
         if sys_icon:
-            sys_icon.setPixmap(qta.icon("mdi6.monitor-dashboard", color=colors.accent).pixmap(QSize(22, 22)))
+            sys_icon.setPixmap(
+                qta.icon("mdi6.monitor-dashboard", color=colors.accent).pixmap(QSize(22, 22))
+            )
         sys_lbl = self.findChild(QLabel, "sys_title_lbl")
         if sys_lbl:
             sys_lbl.setStyleSheet(
@@ -1034,7 +1042,9 @@ class MainWindow(QMainWindow):
 
         overview_icon = self.findChild(QLabel, "overview_icon")
         if overview_icon:
-            overview_icon.setPixmap(qta.icon("mdi6.chart-box-outline", color=colors.accent).pixmap(QSize(22, 22)))
+            overview_icon.setPixmap(
+                qta.icon("mdi6.chart-box-outline", color=colors.accent).pixmap(QSize(22, 22))
+            )
 
         # Refresh stat card icons
         for card in (self._stat_models, self._stat_score, self._stat_gpu, self._stat_providers):
@@ -1042,7 +1052,9 @@ class MainWindow(QMainWindow):
             if icon_lbl:
                 icon_name = icon_lbl.property("icon_name")
                 if icon_name:
-                    icon_lbl.setPixmap(qta.icon(icon_name, color=colors.accent).pixmap(QSize(24, 24)))
+                    icon_lbl.setPixmap(
+                        qta.icon(icon_name, color=colors.accent).pixmap(QSize(24, 24))
+                    )
 
         # Refresh button in system bar
         if hasattr(self, '_refresh_btn'):
@@ -1059,7 +1071,7 @@ class MainWindow(QMainWindow):
         # Update check marks in picker if open
         if hasattr(self, '_theme_picker') and self._theme_picker.isVisible():
             self._theme_picker.hide()
-            
+
         # Update hw_sim icons
         if hasattr(self, '_hwsim_panel'):
             self._hwsim_panel.set_theme(theme_name)
@@ -1136,7 +1148,8 @@ class MainWindow(QMainWindow):
             if is_current:
                 btn.setStyleSheet(
                     f"QFrame#theme_choice_card {{ background: {tc.accent}; border-radius: 8px; }}"
-                    f"QFrame#theme_choice_card QLabel {{ color: {tc.accent_text}; background: transparent; }}"
+                    f"QFrame#theme_choice_card QLabel {{ color: {tc.accent_text};"
+                    " background: transparent; }}"
                 )
             else:
                 btn.setStyleSheet(
@@ -1188,7 +1201,7 @@ class MainWindow(QMainWindow):
         sidebar_width = sidebar.width() if sidebar else 72
         target_height = min(380, 70 + len(THEME_LABELS) * 46)
         picker.setFixedHeight(target_height)
-        
+
         # Calculate precise Y relative to window
         btn_local_y = self._theme_btn.y()
         target_x = sidebar_width + 1
@@ -1199,7 +1212,7 @@ class MainWindow(QMainWindow):
         picker.show()
         picker.raise_()
 
-        # Slide animation (short scale for smoothness instead of position if possible, 
+        # Slide animation (short scale for smoothness instead of position if possible,
         # but requested "starts right after the line" so we just set position exactly
         anim = QPropertyAnimation(picker, b"pos", picker)
         anim.setStartValue(QPoint(target_x, target_y - 10))
@@ -1320,7 +1333,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, "_engine_pill"):
             self._engine_pill.update_status(providers)
         available = [p for p in providers if p.available]
-        logger.info("Providers: %d available (%s)", len(available), ", ".join(p.name for p in available))
+        logger.info(
+            "Providers: %d available (%s)", len(available), ", ".join(p.name for p in available)
+        )
 
         # Mark installed models, tracking which engine(s) hold each one.
         for fit in self._fits:
@@ -2060,7 +2075,9 @@ class MainWindow(QMainWindow):
         model = fit.model
 
         def _has(p) -> bool:
-            return name_matches_installed(model.name, getattr(p, "installed_models", set()) or set())
+            return name_matches_installed(
+                model.name, getattr(p, "installed_models", set()) or set()
+            )
 
         # Only engines that actually have this model AND are running are
         # selectable — never offer an engine that would just 404.

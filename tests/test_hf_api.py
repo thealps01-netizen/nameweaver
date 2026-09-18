@@ -1,6 +1,5 @@
 """Tests for HuggingFace API client and conversion helpers."""
 
-import json
 from unittest.mock import patch
 
 from hf_api import (

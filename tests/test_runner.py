@@ -95,7 +95,10 @@ class TestDispatch:
         assert "Hello world!" in "".join(tokens)
 
     def test_dispatch_lm_studio(self):
-        with patch("runner.urllib.request.urlopen", return_value=_FakeResponse(_sse_stream(["ok"]))):
+        with patch(
+            "runner.urllib.request.urlopen",
+            return_value=_FakeResponse(_sse_stream(["ok"])),
+        ):
             tokens = list(runner.run_model("m", "LM Studio", "hi"))
         assert "ok" in "".join(tokens)
 
@@ -180,7 +183,9 @@ def test_image_on_non_vision_model_gives_friendly_400():
     import urllib.error
     err = urllib.error.HTTPError("http://x", 400, "Bad Request", {}, None)
     with patch("runner.urllib.request.urlopen", side_effect=err):
-        out = "".join(runner.chat_ollama("m", [{"role": "user", "content": "x", "images": ["B64"]}]))
+        out = "".join(
+            runner.chat_ollama("m", [{"role": "user", "content": "x", "images": ["B64"]}])
+        )
     assert "vision model" in out
     # No image → raw error passes through.
     with patch("runner.urllib.request.urlopen", side_effect=err):

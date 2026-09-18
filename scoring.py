@@ -7,12 +7,12 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 
-from hw import GpuBackend, SystemSpecs, effective_bandwidth_gbps, enabled_vram_gb
+from hw import SystemSpecs, effective_bandwidth_gbps, enabled_vram_gb
 from models import (
+    GGUF_QUANT_HIERARCHY,
     QUANT_BPP,
     QUANT_QUALITY_MULT,
     QUANT_SPEED_MULT,
-    GGUF_QUANT_HIERARCHY,
     LlmModel,
     UseCase,
 )

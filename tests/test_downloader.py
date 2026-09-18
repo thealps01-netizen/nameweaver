@@ -1,8 +1,7 @@
 """Tests for model downloaders — Ollama pull + HF GGUF download."""
 
-import io
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import downloader
 

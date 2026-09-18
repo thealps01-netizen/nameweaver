@@ -14,24 +14,29 @@ GitHub Release convention:
     Asset: Nameweaver_Setup.exe   (the installer)
 """
 
-import re
-import os
-import sys
-import ssl
 import hashlib
-import tempfile
-import urllib.request
-import urllib.error
 import json
-
-from PyQt6.QtCore    import QThread, pyqtSignal, QObject, Qt, QPoint, QRectF
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QProgressBar, QApplication, QFrame, QWidget,
-)
-from PyQt6.QtGui     import QFont, QPainter, QColor, QPainterPath
-
 import logging
+import os
+import re
+import ssl
+import tempfile
+import urllib.error
+import urllib.request
+
+from PyQt6.QtCore import QObject, QPoint, QRectF, Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath
+from PyQt6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from version import __version__
 
@@ -220,12 +225,14 @@ class InstallerDownloader(QObject):
             try:
                 ctx = ssl.create_default_context()
                 with urllib.request.urlopen(
-                    urllib.request.Request(sha256_url, headers={"User-Agent": "Nameweaver-Updater/1.0"}),
+                    urllib.request.Request(
+                        sha256_url, headers={"User-Agent": "Nameweaver-Updater/1.0"}
+                    ),
                     timeout=TIMEOUT,
                     context=ctx,
                 ) as r:
                     expected_hash = r.read().decode().split()[0].strip().lower()
-            except urllib.error.URLError as exc:
+            except urllib.error.URLError:
                 _log.error("No .sha256 sidecar — refusing to run unverified installer")
                 self.error.emit(
                     "Update aborted: could not verify the installer (no checksum found)."
@@ -729,7 +736,10 @@ def prompt_and_install(tag: str, download_url: str, notes: str = "", parent=None
             _log.error("ShellExecuteExW failed (err=%d) — installer not launched", err)
 
         from PyQt6.QtCore import QTimer
-        QTimer.singleShot(500, parent._quit if parent and hasattr(parent, '_quit') else QApplication.instance().quit)
+        QTimer.singleShot(
+            500,
+            parent._quit if parent and hasattr(parent, "_quit") else QApplication.instance().quit,
+        )
 
     def _on_error(msg_text: str):
         _active.clear()

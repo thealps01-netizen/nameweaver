@@ -1,7 +1,7 @@
 """Hardware simulation panel — override RAM, VRAM, CPU cores."""
 
 import qtawesome as qta
-from PyQt6.QtCore import pyqtSignal, QSize, Qt
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QHBoxLayout,
@@ -182,16 +182,26 @@ class HardwareSimPanel(QWidget):
     def set_theme(self, theme_name: str):
         from themes import get_theme
         c = get_theme(theme_name)
-        
-        self._apply_btn.setIcon(qta.icon("mdi6.check-circle-outline", color="#a6e3a1" if theme_name in ("dark", "dracula", "nord") else c.good))
-        self._reset_btn.setIcon(qta.icon("mdi6.refresh", color="#f38ba8" if theme_name in ("dark", "dracula", "nord") else c.error))
+
+        self._apply_btn.setIcon(
+            qta.icon(
+                "mdi6.check-circle-outline",
+                color="#a6e3a1" if theme_name in ("dark", "dracula", "nord") else c.good,
+            )
+        )
+        self._reset_btn.setIcon(
+            qta.icon(
+                "mdi6.refresh",
+                color="#f38ba8" if theme_name in ("dark", "dracula", "nord") else c.error,
+            )
+        )
 
         if hasattr(self, "_spin_icons"):
             for icon_lbl in self._spin_icons:
                 name = icon_lbl.property("icon_name")
                 if name:
                     icon_lbl.setPixmap(qta.icon(name, color=c.accent).pixmap(QSize(20, 20)))
-                    
+
         if hasattr(self, "_spin_btns"):
             for btn, icon_name in self._spin_btns:
                 btn.setIcon(qta.icon(icon_name, color=c.fg_muted))

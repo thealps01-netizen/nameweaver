@@ -34,7 +34,12 @@ class TestThemeRegistry:
 class TestThemeSemanticSlots:
     def test_fit_colors_defined(self):
         for colors in THEMES.values():
-            for slot in (colors.fit_perfect, colors.fit_good, colors.fit_marginal, colors.fit_tight):
+            for slot in (
+                colors.fit_perfect,
+                colors.fit_good,
+                colors.fit_marginal,
+                colors.fit_tight,
+            ):
                 assert slot.startswith("#")
                 assert len(slot) in (4, 7)
 

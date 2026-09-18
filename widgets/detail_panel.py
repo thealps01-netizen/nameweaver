@@ -1,6 +1,6 @@
 """Detail panel — shows selected model info with score bars."""
 
-from PyQt6.QtCore import Qt, QEasingCurve, QPropertyAnimation, pyqtProperty, pyqtSignal
+from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, Qt, pyqtProperty, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QApplication,
@@ -9,26 +9,34 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from models import is_engine_compatible, size_class
 from scoring import FitLevel, ModelFit, RunMode, pc_comfort, runnability
-from themes import ThemeColors, get_theme
+from themes import get_theme
 
 
 class ScoreBar(QWidget):
     """Custom-painted horizontal bar showing a 0-100 score with fill animation."""
 
-    def __init__(self, label: str, value: float = 0, color: str = "#89b4fa", parent=None, label_width: int = 70, show_value: bool = True):
+    def __init__(
+        self,
+        label: str,
+        value: float = 0,
+        color: str = "#89b4fa",
+        parent=None,
+        label_width: int = 70,
+        show_value: bool = True,
+    ):
         super().__init__(parent)
         self._label = label
         self._label_width = label_width
         self._show_value = show_value
         self._value = value
-        self._display_value = value  # Start at value so it renders immediately if no animation is triggered
+        # Start at value so it renders immediately if no animation is triggered
+        self._display_value = value
         self._color = color
         self._bg_color = "#313244"
         self.setFixedHeight(28)
@@ -66,11 +74,11 @@ class ScoreBar(QWidget):
 
         w = self.width()
         h = self.height()
-        
+
         # Calculate available width based on visibility settings
         bar_x = self._label_width if self._label else 0
         value_space = 45 if self._show_value else 0
-        
+
         bar_w = w - bar_x - value_space
         if not self._label and not self._show_value:
             bar_w = w
@@ -81,7 +89,14 @@ class ScoreBar(QWidget):
         # Label
         if self._label:
             painter.setPen(QPen(QColor(self._color)))
-            painter.drawText(0, 0, bar_x - 8, h, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self._label)
+            painter.drawText(
+                0,
+                0,
+                bar_x - 8,
+                h,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                self._label,
+            )
 
         # Background bar
         painter.setPen(Qt.PenStyle.NoPen)
@@ -272,8 +287,12 @@ class DetailPanel(QWidget):
         )
 
         # Score with color
-        score_color = c.score_high if fit.score >= 75 else c.score_mid if fit.score >= 50 else c.score_low
-        self._score_label.setText(f'<span style="color:{score_color};">{fit.score:.1f}</span> / 100')
+        score_color = (
+            c.score_high if fit.score >= 75 else c.score_mid if fit.score >= 50 else c.score_low
+        )
+        self._score_label.setText(
+            f'<span style="color:{score_color};">{fit.score:.1f}</span> / 100'
+        )
 
         # Score bars
         def bar_color(val):
@@ -363,7 +382,7 @@ class DetailPanel(QWidget):
         details_html = f"""
         <table style="border-spacing: 4px;">
         <tr><td style="color:{c.fg_muted};">Runs:</td>
-            <td><span style="color:{runs_color}; font-weight:600;">{runs_label}</span>{runs_note}</td></tr>
+<td><span style="color:{runs_color}; font-weight:600;">{runs_label}</span>{runs_note}</td></tr>
         <tr><td style="color:{c.fg_muted};">Installed:</td><td>{installed_html}</td></tr>
         <tr><td style="color:{c.fg_muted};">Parameters:</td>
             <td>{params_text} <span style="color:{size_color};">· {size_label}</span></td></tr>
@@ -373,15 +392,16 @@ class DetailPanel(QWidget):
         <tr><td style="color:{c.fg_muted};">Disk Size:</td><td>{disk_gb:.1f} GB</td></tr>
         <tr><td style="color:{c.fg_muted};">Context:</td><td>{ctx_text}</td></tr>
         <tr><td style="color:{c.fg_muted};">Memory:</td>
-            <td>{fit.memory_required_gb:.1f} / {fit.memory_available_gb:.1f} GB ({fit.utilization_pct:.0f}%)</td></tr>
+<td>{fit.memory_required_gb:.1f} / {fit.memory_available_gb:.1f} GB
+            ({fit.utilization_pct:.0f}%)</td></tr>
         <tr><td style="color:{c.fg_muted};">Run Mode:</td>
             <td><span style="color:{mode_color};">{fit.run_mode.value}</span></td></tr>
         <tr><td style="color:{c.fg_muted};">Fit Level:</td>
             <td><span style="color:{fit_color};">{fit.fit_level.value}</span>
             <span style="color:{c.fg_muted};"> — {fit.fit_level.short_hint}</span></td></tr>
-        <tr><td style="color:{c.fg_muted};">Est. TPS:</td><td>{fit.estimated_tps:.1f} tok/s</td></tr>
+<tr><td style="color:{c.fg_muted};">Est. TPS:</td><td>{fit.estimated_tps:.1f} tok/s</td></tr>
         <tr><td style="color:{c.fg_muted};">License:</td><td>{model.license or 'Unknown'}</td></tr>
-        <tr><td style="color:{c.fg_muted};">Released:</td><td>{model.release_date or 'Unknown'}</td></tr>
+<tr><td style="color:{c.fg_muted};">Released:</td><td>{model.release_date or 'Unknown'}</td></tr>
         </table>
         {moe_text}
         """

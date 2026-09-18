@@ -1,7 +1,7 @@
 """Application dialogs — About, etc."""
 
 import qtawesome as qta
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QDialog,
@@ -84,7 +84,9 @@ class AboutDialog(QDialog):
         h_layout.setSpacing(12)
 
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(qta.icon("mdi6.head-snowflake-outline", color=c.accent).pixmap(QSize(40, 40)))
+        icon_lbl.setPixmap(
+            qta.icon("mdi6.head-snowflake-outline", color=c.accent).pixmap(QSize(40, 40))
+        )
         icon_lbl.setFixedSize(44, 44)
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_lbl.setStyleSheet("background: transparent; border: none;")
@@ -93,10 +95,16 @@ class AboutDialog(QDialog):
         title_col = QVBoxLayout()
         title_col.setSpacing(2)
         title = QLabel("Nameweaver")
-        title.setStyleSheet(f"font-size: 20px; font-weight: bold; color: {c.fg}; background: transparent; border: none;")
+        title.setStyleSheet(
+            f"font-size: 20px; font-weight: bold; color: {c.fg};"
+            " background: transparent; border: none;"
+        )
         title_col.addWidget(title)
         version = QLabel(f"v{__version__}")
-        version.setStyleSheet(f"font-size: 11px; color: {c.fg_muted}; background: transparent; border: none;")
+        version.setStyleSheet(
+            f"font-size: 11px; color: {c.fg_muted};"
+            " background: transparent; border: none;"
+        )
         title_col.addWidget(version)
         h_layout.addLayout(title_col)
         h_layout.addStretch()
@@ -107,8 +115,8 @@ class AboutDialog(QDialog):
         close_btn.setFixedSize(32, 32)
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none; border-radius: 8px; }}"
-            f"QPushButton:hover {{ background: rgba(255,80,80,0.25); }}"
+            "QPushButton { background: transparent; border: none; border-radius: 8px; }"
+            "QPushButton:hover { background: rgba(255,80,80,0.25); }"
         )
         close_btn.clicked.connect(self.close)
         h_layout.addWidget(close_btn)
@@ -123,12 +131,16 @@ class AboutDialog(QDialog):
         )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
-        desc.setStyleSheet(f"color: {c.fg}; font-size: 12px; line-height: 1.5; background: transparent;")
+        desc.setStyleSheet(
+            f"color: {c.fg}; font-size: 12px; line-height: 1.5;"
+            " background: transparent;"
+        )
         layout.addWidget(desc)
 
         # Credits
         credits = QLabel(
-            f'Based on <a style="color:{c.accent}" href="https://github.com/AlexsJones/llmfit">llmfit</a> by Alex Jones'
+            f'Based on <a style="color:{c.accent}"'
+            f' href="https://github.com/AlexsJones/llmfit">llmfit</a> by Alex Jones'
         )
         credits.setOpenExternalLinks(True)
         credits.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -217,7 +229,7 @@ class AlertDialog(QDialog):
         layout.setSpacing(10)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # Header 
+        # Header
         _ah = c.accent.lstrip("#")
         _ar, _ag, _ab = int(_ah[0:2], 16), int(_ah[2:4], 16), int(_ah[4:6], 16)
         header = QFrame()
@@ -231,14 +243,19 @@ class AlertDialog(QDialog):
         h_layout.setSpacing(12)
 
         icon_lbl = QLabel()
-        icon_lbl.setPixmap(qta.icon("mdi6.alert-circle-outline", color=c.accent).pixmap(QSize(32, 32)))
+        icon_lbl.setPixmap(
+            qta.icon("mdi6.alert-circle-outline", color=c.accent).pixmap(QSize(32, 32))
+        )
         icon_lbl.setFixedSize(36, 36)
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_lbl.setStyleSheet("background: transparent; border: none;")
         h_layout.addWidget(icon_lbl)
 
         title = QLabel(self._title)
-        title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {c.fg}; background: transparent; border: none;")
+        title.setStyleSheet(
+            f"font-size: 16px; font-weight: bold; color: {c.fg};"
+            " background: transparent; border: none;"
+        )
         h_layout.addWidget(title)
         h_layout.addStretch()
 
@@ -248,8 +265,8 @@ class AlertDialog(QDialog):
         close_btn.setFixedSize(28, 28)
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none; border-radius: 8px; }}"
-            f"QPushButton:hover {{ background: rgba(255,80,80,0.25); }}"
+            "QPushButton { background: transparent; border: none; border-radius: 8px; }"
+            "QPushButton:hover { background: rgba(255,80,80,0.25); }"
         )
         close_btn.clicked.connect(self.close)
         h_layout.addWidget(close_btn)
@@ -259,11 +276,14 @@ class AlertDialog(QDialog):
         desc = QLabel(self._text)
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
-        desc.setStyleSheet(f"color: {c.fg}; font-size: 13px; line-height: 1.5; background: transparent;")
+        desc.setStyleSheet(
+            f"color: {c.fg}; font-size: 13px; line-height: 1.5;"
+            " background: transparent;"
+        )
         layout.addWidget(desc)
-        
+
         layout.addStretch()
-        
+
         # OK Button
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
@@ -271,7 +291,8 @@ class AlertDialog(QDialog):
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         ok_btn.setFixedSize(100, 36)
         ok_btn.setStyleSheet(
-            f"QPushButton {{ background: {c.accent}; color: {c.bg}; border-radius: 6px; font-weight: bold; font-size: 13px; }}"
+            f"QPushButton {{ background: {c.accent}; color: {c.bg}; border-radius: 6px;"
+            " font-weight: bold; font-size: 13px; }}"
             f"QPushButton:hover {{ background: rgba({_ar},{_ag},{_ab}, 0.8); }}"
         )
         ok_btn.clicked.connect(self.accept)

@@ -8,6 +8,7 @@ Gerekli: pip install Pillow
 """
 
 import os
+
 from PIL import Image, ImageDraw, ImageFont
 
 APP_NAME = "Nameweaver"

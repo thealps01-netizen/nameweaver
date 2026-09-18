@@ -2,7 +2,7 @@
 
 import pytest
 
-from scoring import FitLevel, ModelFit, RunMode, ScoreComponents, rank_models
+from scoring import FitLevel, ModelFit, RunMode, rank_models
 
 
 class TestLayerSplitWarning:

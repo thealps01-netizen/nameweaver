@@ -1,10 +1,8 @@
 """Tests for model definitions and loading."""
 
 import json
-import tempfile
-from pathlib import Path
 
-from models import LlmModel, UseCase, load_models, merge_models, QUANT_BPP
+from models import QUANT_BPP, LlmModel, UseCase, load_models, merge_models
 
 
 class TestLlmModel:

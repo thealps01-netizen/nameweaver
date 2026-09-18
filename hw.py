@@ -268,7 +268,10 @@ def _is_integrated_gpu(name: str) -> bool:
     if "radeon" in n and "graphics" in n and "rx" not in n and "pro" not in n:
         return True
     # Intel UHD/Iris/HD Graphics
-    if any(tag in n for tag in ("intel uhd", "intel iris", "intel hd", "intel(r) uhd", "intel(r) iris")):
+    if any(
+        tag in n
+        for tag in ("intel uhd", "intel iris", "intel hd", "intel(r) uhd", "intel(r) iris")
+    ):
         return True
     # Microsoft Basic Display
     if "basic display" in n or "microsoft" in n:
@@ -286,7 +289,14 @@ def _classify_vendor_backend(name: str) -> tuple[str, GpuBackend]:
     if "intel" in n:
         # Intel integrated (Iris, UHD, HD) — Vulkan is more widely supported than SYCL for iGPU
         return "Intel", GpuBackend.VULKAN
-    if "amd" in n or "radeon" in n or "instinct" in n or "mi300" in n or "mi250" in n or "mi210" in n:
+    if (
+        "amd" in n
+        or "radeon" in n
+        or "instinct" in n
+        or "mi300" in n
+        or "mi250" in n
+        or "mi210" in n
+    ):
         return "AMD", GpuBackend.ROCM
     if "ascend" in n or "huawei" in n:
         return "Huawei", GpuBackend.ASCEND
@@ -382,7 +392,7 @@ def _detect_cpu_ram(specs: SystemSpecs) -> None:
                         timeout=5,
                         creationflags=subprocess.CREATE_NO_WINDOW,
                     )
-                    lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
+                    lines = [ln.strip() for ln in result.stdout.strip().split("\n") if ln.strip()]
                     if len(lines) >= 2:
                         specs.cpu_name = lines[1]
                 except Exception:
@@ -699,7 +709,7 @@ def _detect_windows_gpu(specs: SystemSpecs) -> None:
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
             if result.returncode == 0:
-                lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
+                lines = [ln.strip() for ln in result.stdout.strip().split("\n") if ln.strip()]
                 for line in lines[1:]:
                     match = re.match(r"(\d+)\s+(.+)", line)
                     if match:
@@ -873,8 +883,8 @@ def _try_rocm_vram(specs: SystemSpecs) -> None:
 def _try_intel_arc_sysfs(specs: SystemSpecs) -> None:
     """Read Intel Arc VRAM from /sys/class/drm/cardX/device/mem_info_vram_total."""
     try:
-        from pathlib import Path as _P
         import glob
+        from pathlib import Path as _P
         intel_gpus = [g for g in specs.gpus if g.vendor == "Intel" and not g.integrated]
         if not intel_gpus:
             return

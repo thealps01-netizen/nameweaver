@@ -1,13 +1,12 @@
 """Side-by-side model comparison widget."""
 
 import qtawesome as qta
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QDialog,
     QFrame,
     QGraphicsDropShadowEffect,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -16,8 +15,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from scoring import FitLevel, ModelFit, RunMode
-from themes import ThemeColors, get_theme
+from scoring import ModelFit
+from themes import get_theme
 from widgets.detail_panel import ScoreBar
 
 
@@ -100,7 +99,8 @@ class ComparisonDialog(QDialog):
 
         title = QLabel("Model Comparison")
         title.setStyleSheet(
-            f"font-size: 16px; font-weight: 700; color: {c.fg}; background: transparent; border: none;"
+            f"font-size: 16px; font-weight: 700; color: {c.fg};"
+            " background: transparent; border: none;"
         )
         header_layout.addWidget(title)
         header_layout.addStretch()
@@ -111,8 +111,8 @@ class ComparisonDialog(QDialog):
         close_btn.setFixedSize(36, 36)
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none; border-radius: 8px; }}"
-            f"QPushButton:hover {{ background: rgba(255,80,80,0.25); }}"
+            "QPushButton { background: transparent; border: none; border-radius: 8px; }"
+            "QPushButton:hover { background: rgba(255,80,80,0.25); }"
         )
         close_btn.clicked.connect(self.close)
         header_layout.addWidget(close_btn)
@@ -124,7 +124,9 @@ class ComparisonDialog(QDialog):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll.setStyleSheet(
-            f"QScrollArea#comparison_scroll, QScrollArea#comparison_scroll > QWidget, QScrollArea#comparison_scroll > QWidget > QWidget {{ background: transparent; border: none; }}"
+            "QScrollArea#comparison_scroll, QScrollArea#comparison_scroll > QWidget,"
+            " QScrollArea#comparison_scroll > QWidget > QWidget"
+            " { background: transparent; border: none; }"
         )
 
         body = QWidget()
@@ -132,8 +134,6 @@ class ComparisonDialog(QDialog):
         body_layout = QVBoxLayout(body)
         body_layout.setContentsMargins(20, 16, 20, 16)
         body_layout.setSpacing(16)
-
-        n = len(self._fits)
 
         # ── Model name cards ─────────────────────────────────
         names_row = QHBoxLayout()
@@ -143,7 +143,7 @@ class ComparisonDialog(QDialog):
         spacer.setFixedWidth(160)
         spacer.setStyleSheet("background: transparent;")
         names_row.addWidget(spacer)
-        
+
         names_row.addWidget(self._v_sep())
 
         for i, fit in enumerate(self._fits):
@@ -155,10 +155,11 @@ class ComparisonDialog(QDialog):
             card_wrapper.setStyleSheet("background: transparent;")
             c_layout = QVBoxLayout(card_wrapper)
             c_layout.setContentsMargins(10, 0, 10, 0)
-            
+
             card = QFrame()
             card.setStyleSheet(
-                f"QFrame {{ background: {c.bg_alt}; border: 1px solid {c.border}; border-radius: 12px; }}"
+                f"QFrame {{ background: {c.bg_alt}; border: 1px solid {c.border};"
+                " border-radius: 12px; }}"
             )
             card_layout = QVBoxLayout(card)
             card_layout.setContentsMargins(12, 10, 12, 10)
@@ -167,7 +168,8 @@ class ComparisonDialog(QDialog):
 
             name_lbl = QLabel(fit.model.name)
             name_lbl.setStyleSheet(
-                f"font-weight: 700; font-size: 13px; color: {c.accent}; background: transparent; border: none;"
+                f"font-weight: 700; font-size: 13px; color: {c.accent};"
+                " background: transparent; border: none;"
             )
             name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             name_lbl.setWordWrap(True)
@@ -201,7 +203,13 @@ class ComparisonDialog(QDialog):
         body_layout.addWidget(self._section_label("mdi6.speedometer", "Performance"))
         perf_rows = [
             ("TPS", [f"{f.estimated_tps:.1f}" for f in self._fits]),
-            ("Memory", [f"{f.memory_required_gb:.1f} / {f.memory_available_gb:.1f} GB" for f in self._fits]),
+            (
+                "Memory",
+                [
+                    f"{f.memory_required_gb:.1f} / {f.memory_available_gb:.1f} GB"
+                    for f in self._fits
+                ],
+            ),
             ("Utilization", [f"{f.utilization_pct:.0f}%" for f in self._fits]),
             ("Disk", [f"{f.model.estimate_disk_gb(f.best_quant):.1f} GB" for f in self._fits]),
         ]
@@ -224,7 +232,9 @@ class ComparisonDialog(QDialog):
         for i, (label, vals) in enumerate(detail_rows):
             if i > 0:
                 body_layout.addWidget(self._h_sep())
-            body_layout.addLayout(self._text_row(label, vals, colorize=label in ("Fit Level", "Run Mode")))
+            body_layout.addLayout(
+                self._text_row(label, vals, colorize=label in ("Fit Level", "Run Mode"))
+            )
 
         body_layout.addStretch()
         scroll.setWidget(body)
@@ -236,7 +246,10 @@ class ComparisonDialog(QDialog):
         sep = QFrame()
         sep.setFixedWidth(1)
         # Margin fix to be same height
-        sep.setStyleSheet(f"background: {self._theme.border}; border: none; margin-top: 4px; margin-bottom: 4px;")
+        sep.setStyleSheet(
+            f"background: {self._theme.border}; border: none;"
+            " margin-top: 4px; margin-bottom: 4px;"
+        )
         return sep
 
     def _h_sep(self) -> QFrame:
@@ -261,7 +274,8 @@ class ComparisonDialog(QDialog):
 
         lbl = QLabel(text.upper())
         lbl.setStyleSheet(
-            f"font-size: 11px; font-weight: 700; color: {c.fg_muted}; letter-spacing: 1px; background: transparent;"
+            f"font-size: 11px; font-weight: 700; color: {c.fg_muted};"
+            " letter-spacing: 1px; background: transparent;"
         )
         row_layout.addWidget(lbl)
         row_layout.addStretch()
@@ -277,7 +291,7 @@ class ComparisonDialog(QDialog):
         lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         lbl.setStyleSheet(f"color: {c.fg_muted}; font-size: 12px; font-weight: 600;")
         row.addWidget(lbl)
-        
+
         row.addWidget(self._v_sep())
 
         best = max(values)
@@ -286,19 +300,24 @@ class ComparisonDialog(QDialog):
                 row.addWidget(self._v_sep())
 
             cell = QFrame()
-            cell.setStyleSheet(f"background: transparent;")
+            cell.setStyleSheet("background: transparent;")
             cell_layout = QHBoxLayout(cell)
             cell_layout.setContentsMargins(10, 0, 10, 0)
             cell_layout.setSpacing(10)
 
-            bar = ScoreBar(label="", value=val, color=c.accent if val == best and len(values) > 1 else c.fg_muted, show_value=False)
+            bar = ScoreBar(
+                label="",
+                value=val,
+                color=c.accent if val == best and len(values) > 1 else c.fg_muted,
+                show_value=False,
+            )
             # Create a loading effect by rendering from 0
             bar._display_value = 0.0
             bar.set_bg_color(c.selection_bg)
             bar.setMinimumWidth(30)
             bar.setFixedHeight(22)
             cell_layout.addWidget(bar, stretch=1)
-            
+
             # Animate the bar slightly later so it feels cohesive
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(150 + (i * 50), lambda b=bar, v=val: b.set_value(v))
@@ -306,7 +325,11 @@ class ComparisonDialog(QDialog):
             val_lbl = QLabel(f"{val:.1f}")
             val_lbl.setFixedWidth(36)
             val_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            style = f"font-size: 13px; font-weight: 700; color: {c.good};" if val == best and len(values) > 1 else f"font-size: 13px; font-weight: 600; color: {c.fg};"
+            style = (
+                f"font-size: 13px; font-weight: 700; color: {c.good};"
+                if val == best and len(values) > 1
+                else f"font-size: 13px; font-weight: 600; color: {c.fg};"
+            )
             val_lbl.setStyleSheet(style)
             cell_layout.addWidget(val_lbl)
 
@@ -324,7 +347,7 @@ class ComparisonDialog(QDialog):
         lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         lbl.setStyleSheet(f"color: {c.fg_muted}; font-size: 12px; font-weight: 600;")
         row.addWidget(lbl)
-        
+
         row.addWidget(self._v_sep())
 
         for i, val in enumerate(values):
@@ -351,13 +374,13 @@ class ComparisonDialog(QDialog):
                 style = f"font-size: 12px; color: {color};"
 
             val_lbl.setStyleSheet(style)
-            
+
             cell = QFrame()
             cell.setStyleSheet("background: transparent;")
             cell_layout = QHBoxLayout(cell)
             cell_layout.setContentsMargins(10, 0, 10, 0)
             cell_layout.addWidget(val_lbl, stretch=1)
-            
+
             row.addWidget(cell, stretch=1)
 
         return row

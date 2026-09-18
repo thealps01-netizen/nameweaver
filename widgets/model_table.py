@@ -1,5 +1,6 @@
 """Main model table — QAbstractTableModel + QSortFilterProxyModel + QTableView."""
 
+import qtawesome as qta
 from PyQt6.QtCore import (
     QAbstractTableModel,
     QModelIndex,
@@ -7,7 +8,6 @@ from PyQt6.QtCore import (
     Qt,
     pyqtSignal,
 )
-import qtawesome as qta
 from PyQt6.QtGui import QAction, QColor, QIcon
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -130,7 +130,11 @@ class ModelTableModel(QAbstractTableModel):
 
         if col_key == "check":
             if role == Qt.ItemDataRole.CheckStateRole:
-                return Qt.CheckState.Checked if index.row() in self._checked else Qt.CheckState.Unchecked
+                return (
+                    Qt.CheckState.Checked
+                    if index.row() in self._checked
+                    else Qt.CheckState.Unchecked
+                )
             return None
 
         if role == Qt.ItemDataRole.DisplayRole:

@@ -29,8 +29,8 @@ from pathlib import Path
 from providers import (
     _docker_is_installed,
     _http_get_json,
-    _lmstudio_is_installed,
     _lmstudio_installer_url,
+    _lmstudio_is_installed,
     _ollama_host,
     _ollama_installer_url,
     _ollama_is_installed,

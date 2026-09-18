@@ -1,7 +1,6 @@
 """Convert llmfit's hf_models.json to Nameweaver's models.json format."""
 
 import json
-import re
 import sys
 from pathlib import Path
 

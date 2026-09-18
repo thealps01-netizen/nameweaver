@@ -298,7 +298,9 @@ def run_model(
     elif p in ("lm studio", "lmstudio"):
         yield from run_lm_studio(model_name, prompt, system=system, should_cancel=should_cancel)
     elif p in ("docker", "docker model runner", "dmr"):
-        yield from run_docker_model_runner(model_name, prompt, system=system, should_cancel=should_cancel)
+        yield from run_docker_model_runner(
+            model_name, prompt, system=system, should_cancel=should_cancel
+        )
     else:
         yield f"[error: provider '{provider}' not supported for streaming inference]"
 

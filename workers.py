@@ -6,8 +6,8 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from hw import SystemSpecs
 from models import LlmModel, load_all_models
-from providers import ProviderStatus, detect_all_providers
-from scoring import ModelFit, analyze_all
+from providers import detect_all_providers
+from scoring import ModelFit
 
 logger = logging.getLogger(__name__)
 

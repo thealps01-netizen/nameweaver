@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import webbrowser
-from pathlib import Path
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QDialog,
     QDialogButtonBox,
-    QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QTableWidget,

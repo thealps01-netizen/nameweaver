@@ -1,7 +1,7 @@
 """Tests for provider lifecycle helpers."""
 
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from provider_control import (
     START_ACTIONS,

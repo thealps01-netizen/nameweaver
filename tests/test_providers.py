@@ -5,11 +5,11 @@ from unittest.mock import patch
 from providers import (
     ProviderState,
     ProviderStatus,
-    detect_llamacpp,
-    detect_ollama,
-    detect_lm_studio,
-    detect_docker_model_runner,
     _http_get_json,
+    detect_docker_model_runner,
+    detect_llamacpp,
+    detect_lm_studio,
+    detect_ollama,
 )
 
 

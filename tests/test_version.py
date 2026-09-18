@@ -1,6 +1,6 @@
 """version.py için temel testler."""
 
-from version import __version__, __version_tuple__, APP_NAME
+from version import APP_NAME, __version__, __version_tuple__
 
 
 def test_version_matches_tuple():

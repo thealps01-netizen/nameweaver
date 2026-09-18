@@ -86,9 +86,15 @@ def infer_use_case(name: str, tags: Iterable[str] | None = None) -> str:
     tag_str = " ".join(t.lower() for t in (tags or []))
     blob = f"{n} {tag_str}"
 
-    if any(k in blob for k in ("embedding", "sentence-similarity", "feature-extraction", "bge", "-e5-")):
+    if any(
+        k in blob
+        for k in ("embedding", "sentence-similarity", "feature-extraction", "bge", "-e5-")
+    ):
         return "embedding"
-    if any(k in blob for k in ("vision", "vl", "image-text", "multimodal", "llava", "pixtral", "-vl")):
+    if any(
+        k in blob
+        for k in ("vision", "vl", "image-text", "multimodal", "llava", "pixtral", "-vl")
+    ):
         return "multimodal"
     if any(k in blob for k in ("code", "coder", "starcoder", "codellama")):
         return "coding"

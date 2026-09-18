@@ -64,7 +64,8 @@ class ProviderStatus:
     installed_models: set[str] = field(default_factory=set)
     install_hint: str = ""      # URL to installer page or CLI command
     start_action: str = ""      # UI action key: "start_ollama" / "start_lmstudio" / ""
-    stop_action: str = ""       # UI action key: "stop_ollama" / "stop_lmstudio" / "" — only set when READY
+    # UI action key: "stop_ollama" / "stop_lmstudio" / "" — only set when READY
+    stop_action: str = ""
 
     def __post_init__(self) -> None:
         # Keep ``available`` and ``state`` in sync so legacy callers setting

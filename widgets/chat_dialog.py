@@ -6,11 +6,10 @@ from __future__ import annotations
 
 import base64
 import html
-import re
 import time
 
 import qtawesome as qta
-from PyQt6.QtCore import Qt, QSize, QTimer
+from PyQt6.QtCore import QSize, Qt, QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QApplication,
@@ -78,7 +77,10 @@ class _CodeBlock(QFrame):
         bar = QHBoxLayout()
         bar.setContentsMargins(10, 4, 6, 4)
         tag = QLabel(lang or "code")
-        tag.setStyleSheet(f"color:{c.fg_muted}; font-size:10px; background:transparent; border:none;")
+        tag.setStyleSheet(
+            f"color:{c.fg_muted}; font-size:10px;"
+            " background:transparent; border:none;"
+        )
         bar.addWidget(tag)
         bar.addStretch(1)
         copy = QPushButton("Copy")
@@ -333,7 +335,9 @@ class ChatDialog(QDialog):
 
         # System prompt
         self._system = QLineEdit()
-        self._system.setPlaceholderText("System prompt (optional) — e.g. 'Always answer in Turkish.'")
+        self._system.setPlaceholderText(
+            "System prompt (optional) — e.g. 'Always answer in Turkish.'"
+        )
         root.addWidget(self._system)
 
         # Transcript scroll area
@@ -369,7 +373,9 @@ class ChatDialog(QDialog):
 
         # Input
         self._input = QPlainTextEdit()
-        self._input.setPlaceholderText("Type your prompt (Enter to send · Shift+Enter for newline)…")
+        self._input.setPlaceholderText(
+            "Type your prompt (Enter to send · Shift+Enter for newline)…"
+        )
         self._input.setFixedHeight(56)
         self._input.installEventFilter(self)
         self._input.setStyleSheet(
